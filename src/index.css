@@ -1,0 +1,119 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    font-family: 'Inter', system-ui, -apple-system, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  html {
+    @apply bg-gray-50 text-gray-900;
+  }
+
+  body {
+    @apply min-h-screen m-0;
+  }
+
+  /* Touch-friendly defaults for iPad */
+  button, a, input, textarea, select {
+    @apply touch-manipulation;
+  }
+
+  /* Prevent text selection on buttons for better touch experience */
+  button {
+    -webkit-user-select: none;
+    user-select: none;
+  }
+}
+
+@layer components {
+  /* Large touch targets for iPad */
+  .btn {
+    @apply px-4 py-3 rounded-lg font-medium transition-all duration-200;
+    @apply active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed;
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  .btn-primary {
+    @apply btn bg-primary text-white hover:bg-primary-dark;
+  }
+
+  .btn-secondary {
+    @apply btn bg-gray-200 text-gray-800 hover:bg-gray-300;
+  }
+
+  .btn-outline {
+    @apply btn border-2 border-gray-300 bg-white hover:bg-gray-50;
+  }
+
+  /* Card styles */
+  .card {
+    @apply bg-white rounded-xl shadow-sm border border-gray-200 p-4;
+  }
+
+  /* Form inputs */
+  .input {
+    @apply w-full px-4 py-3 border border-gray-300 rounded-lg;
+    @apply focus:ring-2 focus:ring-primary focus:border-primary outline-none;
+    @apply text-base;
+    min-height: 44px;
+  }
+
+  .textarea {
+    @apply input resize-none;
+  }
+
+  .label {
+    @apply block text-sm font-medium text-gray-700 mb-1;
+  }
+
+  /* Grade colors */
+  .grade-good {
+    @apply bg-grade-good text-white;
+  }
+
+  .grade-fair {
+    @apply bg-grade-fair text-white;
+  }
+
+  .grade-poor {
+    @apply bg-grade-poor text-white;
+  }
+
+  .grade-na {
+    @apply bg-grade-na text-white;
+  }
+}
+
+@layer utilities {
+  /* Safe area padding for iOS */
+  .safe-top {
+    padding-top: env(safe-area-inset-top);
+  }
+
+  .safe-bottom {
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+
+  .safe-left {
+    padding-left: env(safe-area-inset-left);
+  }
+
+  .safe-right {
+    padding-right: env(safe-area-inset-right);
+  }
+
+  /* Hide scrollbar but keep functionality */
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+}
