@@ -141,6 +141,22 @@ supabase functions deploy  # Deploy Edge Functions
 - Thumbnails generated for UI
 - Storage warnings at 75 and 100 photos
 
+## Photo Sync Architecture
+
+Photos are stored in three places:
+1. **Local blob store** (`4jPhotoBlobStore` IndexedDB) - Actual image blobs
+2. **Local photo metadata** (`4jInspectionDB.photos` IndexedDB) - Photo records with observation links
+3. **Supabase Storage** (`inspection-photos` bucket) - Cloud storage for blobs
+4. **Supabase Database** (`photos` table) - Cloud photo records for PDF generation
+
+When syncing photos:
+- `syncService.ts` uploads blob to Storage
+- Creates signed URLs (bucket is private)
+- Inserts record into `photos` table
+- Updates local record with storage URL
+
+**Important**: The `inspection-photos` bucket is private. The `generate-pdf` Edge Function creates signed URLs to fetch photos.
+
 ## Notes for Development
 
 - Use Python for file operations on Windows (bash has path issues)
@@ -148,3 +164,17 @@ supabase functions deploy  # Deploy Edge Functions
 - Offline-first: All data persists in IndexedDB
 - Sync: Manual "Sync Now" button + auto-sync on app open/resume
 - PDF uses Helvetica (built-in) fonts for reliable rendering
+- Auth was removed - using fixed inspector ID and permissive RLS policies
+- Photo captions in PDF show item names: "Grading Image 1", "Driveways Image 2"
+
+## Troubleshooting
+
+### Photos not appearing in PDF
+1. Check Sync Queue for failed items
+2. Click "Retry Failed" or "Reset All" to re-sync
+3. Verify photos table has records (Supabase dashboard)
+4. Check Edge Function logs for signed URL errors
+
+### Executive Summary not appearing
+1. Make sure to click "Sync Now" after generating the summary
+2. Check that `executive_summary` field is synced to cloud
