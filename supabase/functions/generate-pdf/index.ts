@@ -263,8 +263,9 @@ async function generateInspectionPDF(
   }
 
   // ==========================================
-  // EXECUTIVE SUMMARY
+  // EXECUTIVE SUMMARY (new page)
   // ==========================================
+  ctx = addNewPage(ctx);
   ctx = drawSectionHeader(ctx, 'Executive Summary');
   ctx = drawSummaryBox(ctx, inspection.executive_summary?.text);
 
