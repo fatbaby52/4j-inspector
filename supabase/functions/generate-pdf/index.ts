@@ -485,25 +485,41 @@ async function generateInspectionPDF(
     font: ctx.fonts.regular,
     color: COLORS.TEXT_LIGHT,
   });
-  ctx.y -= 25;
+  ctx.y -= 30;
 
-  // Inspector name
-  ctx.page.drawText(inspection.inspector_name || 'Inspector', {
-    x: PAGE.MARGIN_LEFT,
-    y: ctx.y,
-    size: FONTS.BODY,
-    font: ctx.fonts.bold,
+  // Print name line
+  ctx.page.drawLine({
+    start: { x: PAGE.MARGIN_LEFT, y: ctx.y },
+    end: { x: PAGE.MARGIN_LEFT + 250, y: ctx.y },
+    thickness: 1,
     color: COLORS.TEXT_DARK,
   });
-  ctx.y -= 18;
+  ctx.y -= 15;
 
-  // Date
-  ctx.page.drawText(`Date: ${formatDate(new Date().toISOString())}`, {
+  ctx.page.drawText('Print Name', {
     x: PAGE.MARGIN_LEFT,
     y: ctx.y,
-    size: FONTS.BODY,
+    size: FONTS.SMALL,
     font: ctx.fonts.regular,
+    color: COLORS.TEXT_LIGHT,
+  });
+  ctx.y -= 30;
+
+  // Date line
+  ctx.page.drawLine({
+    start: { x: PAGE.MARGIN_LEFT, y: ctx.y },
+    end: { x: PAGE.MARGIN_LEFT + 250, y: ctx.y },
+    thickness: 1,
     color: COLORS.TEXT_DARK,
+  });
+  ctx.y -= 15;
+
+  ctx.page.drawText('Date', {
+    x: PAGE.MARGIN_LEFT,
+    y: ctx.y,
+    size: FONTS.SMALL,
+    font: ctx.fonts.regular,
+    color: COLORS.TEXT_LIGHT,
   });
 
   // ==========================================
