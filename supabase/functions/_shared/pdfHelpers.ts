@@ -35,6 +35,7 @@ export const FONTS = {
 export const COLORS = {
   PRIMARY_BLUE: rgb(0.12, 0.23, 0.37),      // #1e3a5f
   ACCENT_BLUE: rgb(0.15, 0.39, 0.92),       // #2563eb
+  COVER_GREY: rgb(0.3, 0.3, 0.3),           // #4d4d4d - Cover page background
   GOOD_GREEN: rgb(0.13, 0.77, 0.37),        // #22c55e
   FAIR_YELLOW: rgb(0.92, 0.70, 0.03),       // #eab308
   POOR_RED: rgb(0.94, 0.27, 0.27),          // #ef4444
@@ -178,11 +179,52 @@ export function ensureSpace(
  */
 export function addNewPage(ctx: PageContext): PageContext {
   const newPage = ctx.doc.addPage([PAGE.WIDTH, PAGE.HEIGHT]);
+
+  // Draw 4J logo in top-right corner of every page
+  drawLogo(newPage, ctx.fonts.bold, PAGE.WIDTH - PAGE.MARGIN_RIGHT - 40, PAGE.HEIGHT - 35, 40);
+
   return {
     ...ctx,
     page: newPage,
     y: PAGE.HEIGHT - PAGE.MARGIN_TOP,
   };
+}
+
+/**
+ * Draw the 4J logo (blue rounded rectangle with white "4J" text)
+ */
+export function drawLogo(
+  page: PDFPage,
+  font: PDFFont,
+  x: number,
+  y: number,
+  size: number = 40
+): void {
+  // Draw blue rounded rectangle background
+  const cornerRadius = size * 0.125; // ~12.5% of size for rounded corners
+
+  // Since pdf-lib doesn't have built-in rounded rect, draw a regular rect
+  // (the visual difference is minimal at small sizes)
+  page.drawRectangle({
+    x,
+    y,
+    width: size,
+    height: size,
+    color: COLORS.ACCENT_BLUE,
+  });
+
+  // Draw "4J" text centered in the box
+  const text = '4J';
+  const fontSize = size * 0.45;
+  const textWidth = font.widthOfTextAtSize(text, fontSize);
+
+  page.drawText(text, {
+    x: x + (size - textWidth) / 2,
+    y: y + size * 0.28,
+    size: fontSize,
+    font,
+    color: COLORS.WHITE,
+  });
 }
 
 // ============================================

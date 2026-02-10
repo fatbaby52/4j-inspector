@@ -20,6 +20,7 @@ import {
   drawNoData,
   drawImage,
   drawWrappedText,
+  drawLogo,
   formatDate,
   formatItemName,
 } from '../_shared/pdfHelpers.ts';
@@ -190,10 +191,19 @@ async function generateInspectionPDF(
     fonts: { regular: regularFont, bold: boldFont },
   };
 
+  // Find facade photo URL if available
+  let facadePhotoUrl: string | undefined;
+  if (inspection.facade_photo_id) {
+    const facadePhoto = photos.find((p: any) => p.id === inspection.facade_photo_id);
+    if (facadePhoto?.storage_url) {
+      facadePhotoUrl = facadePhoto.storage_url;
+    }
+  }
+
   // ==========================================
   // COVER PAGE
   // ==========================================
-  ctx = drawCoverPage(ctx, inspection, inspectionType, address, client);
+  ctx = await drawCoverPage(ctx, inspection, inspectionType, address, client, facadePhotoUrl);
 
   // ==========================================
   // PROPERTY INFORMATION
@@ -545,27 +555,31 @@ async function generateInspectionPDF(
 // COVER PAGE
 // ============================================
 
-function drawCoverPage(
+async function drawCoverPage(
   ctx: PageContext,
   inspection: any,
   inspectionType: string,
   address: any,
-  client: any
-): PageContext {
-  const { page, fonts } = ctx;
+  client: any,
+  facadePhotoUrl?: string
+): Promise<PageContext> {
+  const { page, fonts, doc } = ctx;
   const centerX = PAGE.WIDTH / 2;
 
-  // Blue background rectangle (full page)
+  // Grey background rectangle (full page)
   page.drawRectangle({
     x: 0,
     y: 0,
     width: PAGE.WIDTH,
     height: PAGE.HEIGHT,
-    color: COLORS.PRIMARY_BLUE,
+    color: COLORS.COVER_GREY,
   });
 
+  // Draw 4J logo in top-right corner
+  drawLogo(page, fonts.bold, PAGE.WIDTH - PAGE.MARGIN_RIGHT - 50, PAGE.HEIGHT - 60, 50);
+
   // Title
-  let y = PAGE.HEIGHT - 150;
+  let y = PAGE.HEIGHT - 100;
   const title = 'PROPERTY INSPECTION REPORT';
   const titleWidth = fonts.bold.widthOfTextAtSize(title, FONTS.TITLE);
 
@@ -589,41 +603,76 @@ function drawCoverPage(
     color: COLORS.WHITE,
   });
 
+  // Facade photo (if available)
+  y -= 30;
+  if (facadePhotoUrl) {
+    try {
+      const response = await fetch(facadePhotoUrl);
+      if (response.ok) {
+        const imageBytes = await response.arrayBuffer();
+        let image;
+        const contentType = response.headers.get('content-type') || '';
+
+        try {
+          if (contentType.includes('png')) {
+            image = await doc.embedPng(imageBytes);
+          } else {
+            image = await doc.embedJpg(imageBytes);
+          }
+
+          // Calculate dimensions to fit nicely on cover
+          const maxWidth = 350;
+          const maxHeight = 220;
+          const aspectRatio = image.width / image.height;
+          let drawWidth = Math.min(maxWidth, image.width);
+          let drawHeight = drawWidth / aspectRatio;
+
+          if (drawHeight > maxHeight) {
+            drawHeight = maxHeight;
+            drawWidth = drawHeight * aspectRatio;
+          }
+
+          // Center the image
+          const imageX = centerX - drawWidth / 2;
+
+          page.drawImage(image, {
+            x: imageX,
+            y: y - drawHeight,
+            width: drawWidth,
+            height: drawHeight,
+          });
+
+          y -= drawHeight + 20;
+        } catch (e) {
+          console.error('Failed to embed facade image:', e);
+        }
+      }
+    } catch (e) {
+      console.error('Failed to fetch facade image:', e);
+    }
+  }
+
   // Address box
-  y -= 80;
+  y -= 20;
   const addressLine1 = address.street || 'Address Not Specified';
   const addressLine2 = `${address.city || ''}${address.city && address.state ? ', ' : ''}${address.state || ''} ${address.zip || ''}`.trim();
-
-  const boxWidth = 350;
-  const boxHeight = 80;
-  const boxX = centerX - boxWidth / 2;
-
-  // Draw address box border
-  page.drawRectangle({
-    x: boxX,
-    y: y - boxHeight,
-    width: boxWidth,
-    height: boxHeight,
-    borderColor: rgb(1, 1, 1, 0.5),
-    borderWidth: 2,
-    opacity: 0,
-  });
 
   // Address text
   const addr1Width = fonts.bold.widthOfTextAtSize(addressLine1, 16);
   page.drawText(addressLine1, {
     x: centerX - addr1Width / 2,
-    y: y - 25,
+    y,
     size: 16,
     font: fonts.bold,
     color: COLORS.WHITE,
   });
 
   if (addressLine2) {
+    y -= 22;
     const addr2Width = fonts.regular.widthOfTextAtSize(addressLine2, FONTS.BODY);
     page.drawText(addressLine2, {
       x: centerX - addr2Width / 2,
-      y: y - 50,
+      y,
       size: FONTS.BODY,
       font: fonts.regular,
       color: COLORS.WHITE,
@@ -631,7 +680,7 @@ function drawCoverPage(
   }
 
   // Meta information
-  y -= 130;
+  y -= 40;
 
   const metaItems = [
     { label: 'Prepared for:', value: client.name || 'Client' },
@@ -654,7 +703,7 @@ function drawCoverPage(
   }
 
   // Company name at bottom
-  y = 100;
+  y = 80;
   const company = '4J Construction';
   const companyWidth = fonts.bold.widthOfTextAtSize(company, 18);
 

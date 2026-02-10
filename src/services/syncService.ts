@@ -140,6 +140,7 @@ async function syncInspection(inspection: any): Promise<void> {
     observations: inspection.observations || {},
     executive_summary: inspection.executiveSummary || null,
     recommendations: inspection.recommendations || [],
+    facade_photo_id: inspection.facadePhotoId || null,
     version: inspection.version || 1,
     last_edited_by_device_id: inspection.lastEditedByDeviceId || null,
     last_edited_by_device_type: inspection.lastEditedByDeviceType || null,
