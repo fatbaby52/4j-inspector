@@ -156,6 +156,94 @@ export function DesktopReview() {
           </CardContent>
         </Card>
 
+        {/* Edit Property & Client Info */}
+        <Card className="bg-purple-50 border-purple-200">
+          <CardContent>
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <span className="text-xl">📋</span>
+                <h4 className="font-medium text-purple-900">Edit Property Info</h4>
+              </div>
+              <span className="text-xs text-purple-700 bg-purple-100 px-2 py-1 rounded">
+                Client, Address, Building
+              </span>
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                onClick={() => navigate(`/inspection/${id}/client`)}
+                className="p-3 bg-white border border-purple-200 rounded-lg hover:bg-purple-100 transition-colors text-left"
+              >
+                <span className="text-lg block mb-1">👤</span>
+                <span className="text-sm font-medium text-gray-900 block">Client Info</span>
+                <span className="text-xs text-gray-500">{currentInspection.clientInfo.name || 'Not set'}</span>
+              </button>
+              <button
+                onClick={() => navigate(`/inspection/${id}/property`)}
+                className="p-3 bg-white border border-purple-200 rounded-lg hover:bg-purple-100 transition-colors text-left"
+              >
+                <span className="text-lg block mb-1">🏠</span>
+                <span className="text-sm font-medium text-gray-900 block">Property Address</span>
+                <span className="text-xs text-gray-500 truncate block">{currentInspection.propertyAddress.street || 'Not set'}</span>
+              </button>
+              <button
+                onClick={() => navigate(`/inspection/${id}/building`)}
+                className="p-3 bg-white border border-purple-200 rounded-lg hover:bg-purple-100 transition-colors text-left"
+              >
+                <span className="text-lg block mb-1">🏗️</span>
+                <span className="text-sm font-medium text-gray-900 block">Building Data</span>
+                <span className="text-xs text-gray-500">{currentInspection.buildingData.propertyType || 'Not set'}</span>
+              </button>
+              <button
+                onClick={() => navigate(`/inspection/${id}/property`)}
+                className="p-3 bg-white border border-purple-200 rounded-lg hover:bg-purple-100 transition-colors text-left"
+              >
+                <span className="text-lg block mb-1">📷</span>
+                <span className="text-sm font-medium text-gray-900 block">Facade Photo</span>
+                <span className="text-xs text-gray-500">{currentInspection.facadePhotoId ? 'Captured' : 'Not set'}</span>
+              </button>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Edit Field Data */}
+        <Card className="bg-amber-50 border-amber-200">
+          <CardContent>
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <span className="text-xl">✏️</span>
+                <h4 className="font-medium text-amber-900">Edit Inspection Data</h4>
+              </div>
+              <span className="text-xs text-amber-700 bg-amber-100 px-2 py-1 rounded">
+                Notes, Photos & Grades
+              </span>
+            </div>
+            <p className="text-sm text-amber-800 mb-3">
+              Click a category to edit observations, notes, or photos.
+            </p>
+            <div className="grid grid-cols-3 gap-2">
+              {inspectionCategories.map((cat) => {
+                const catObsCount = cat.items.reduce((count, item) => {
+                  const obs = currentInspection.observations[item.id];
+                  return count + (obs ? obs.length : 0);
+                }, 0);
+                return (
+                  <button
+                    key={cat.id}
+                    onClick={() => navigate(`/inspection/${id}/category/${cat.id}`)}
+                    className="p-2 bg-white border border-amber-200 rounded-lg hover:bg-amber-100 transition-colors text-center"
+                  >
+                    <span className="text-lg block">{cat.icon}</span>
+                    <span className="text-xs text-gray-700 block truncate">{cat.name}</span>
+                    {catObsCount > 0 && (
+                      <span className="text-xs text-amber-600">({catObsCount})</span>
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Review Steps */}
         <div className="space-y-3">
           <h3 className="text-sm font-medium text-gray-500 uppercase tracking-wide">

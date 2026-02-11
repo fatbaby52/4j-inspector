@@ -168,11 +168,21 @@ export function NoteReview() {
     });
   }, [updateNote]);
 
-  // Handle edit
+  // Handle edit (cleaned text)
   const handleEdit = useCallback(async (noteCtx: NoteWithContext, newText: string) => {
     await updateNote(noteCtx.itemId, noteCtx.observationId, noteCtx.note.id, {
       cleanedText: newText,
       reviewStatus: 'edited',
+    });
+  }, [updateNote]);
+
+  // Handle edit raw text
+  const handleEditRaw = useCallback(async (noteCtx: NoteWithContext, newRawText: string) => {
+    await updateNote(noteCtx.itemId, noteCtx.observationId, noteCtx.note.id, {
+      rawText: newRawText,
+      // Clear AI suggestion since the original changed
+      cleanedText: undefined,
+      reviewStatus: 'pending',
     });
   }, [updateNote]);
 
@@ -308,6 +318,7 @@ export function NoteReview() {
                   onAccept={() => handleAccept(noteCtx)}
                   onDecline={() => handleDecline(noteCtx)}
                   onEdit={(_, newText) => handleEdit(noteCtx, newText)}
+                  onEditRaw={(_, newRawText) => handleEditRaw(noteCtx, newRawText)}
                   onRegenerate={() => handleCleanupNote(noteCtx)}
                 />
               </div>
@@ -332,6 +343,7 @@ export function NoteReview() {
                 onAccept={() => handleAccept(noteCtx)}
                 onDecline={() => handleDecline(noteCtx)}
                 onEdit={(_, newText) => handleEdit(noteCtx, newText)}
+                onEditRaw={(_, newRawText) => handleEditRaw(noteCtx, newRawText)}
               />
             ))}
           </div>

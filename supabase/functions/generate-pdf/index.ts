@@ -1,7 +1,7 @@
 // Edge Function: generate-pdf
 // Generates PDF report from inspection data using pdf-lib
 
-import { serve } from 'https://deno.land/std@0.168.0/http/server.ts';
+import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { PDFDocument, StandardFonts, rgb } from 'https://esm.sh/pdf-lib@1.17.1';
 import { corsHeaders, handleCors } from '../_shared/cors.ts';
@@ -193,12 +193,25 @@ async function generateInspectionPDF(
 
   // Find facade photo URL if available
   let facadePhotoUrl: string | undefined;
+  console.log('=== FACADE PHOTO DEBUG ===');
+  console.log('inspection.facade_photo_id:', inspection.facade_photo_id);
+  console.log('Number of photos:', photos.length);
+  if (photos.length > 0) {
+    console.log('Photo IDs in array:', photos.map((p: any) => p.id));
+  }
+
   if (inspection.facade_photo_id) {
     const facadePhoto = photos.find((p: any) => p.id === inspection.facade_photo_id);
-    if (facadePhoto?.storage_url) {
-      facadePhotoUrl = facadePhoto.storage_url;
+    console.log('Found facade photo?', !!facadePhoto);
+    if (facadePhoto) {
+      console.log('Facade photo storage_url:', facadePhoto.storage_url);
+      if (facadePhoto.storage_url) {
+        facadePhotoUrl = facadePhoto.storage_url;
+      }
     }
   }
+  console.log('Final facadePhotoUrl:', facadePhotoUrl);
+  console.log('=== END FACADE DEBUG ===')
 
   // ==========================================
   // COVER PAGE
@@ -433,7 +446,7 @@ async function generateInspectionPDF(
   // ==========================================
   // SIGNATURE SECTION
   // ==========================================
-  ctx = ensureSpace(ctx, 150);
+  ctx = ensureSpace(ctx, 200);
   ctx.y -= 30;
 
   // Divider line
@@ -469,6 +482,62 @@ async function generateInspectionPDF(
   );
   ctx.y -= 20;
 
+  // Embed signature image if available
+  console.log('=== SIGNATURE DEBUG ===');
+  console.log('inspector_signature exists:', !!inspection.inspector_signature);
+  console.log('inspector_signature type:', typeof inspection.inspector_signature);
+  if (inspection.inspector_signature) {
+    console.log('inspector_signature length:', inspection.inspector_signature.length);
+    console.log('inspector_signature prefix:', inspection.inspector_signature.substring(0, 50));
+  }
+  console.log('=== END SIGNATURE DEBUG ===');
+
+  if (inspection.inspector_signature) {
+    try {
+      const signatureData = inspection.inspector_signature;
+
+      // Parse base64 data URL - support both PNG and JPEG
+      const pngMatch = signatureData.match(/^data:image\/png;base64,(.+)$/);
+      const jpegMatch = signatureData.match(/^data:image\/jpe?g;base64,(.+)$/);
+
+      let signatureImage;
+      if (pngMatch) {
+        const signatureBytes = Uint8Array.from(atob(pngMatch[1]), c => c.charCodeAt(0));
+        signatureImage = await ctx.doc.embedPng(signatureBytes);
+      } else if (jpegMatch) {
+        const signatureBytes = Uint8Array.from(atob(jpegMatch[1]), c => c.charCodeAt(0));
+        signatureImage = await ctx.doc.embedJpg(signatureBytes);
+      }
+
+      if (signatureImage) {
+        // Scale signature to fit (max 200 width, proportional height)
+        const maxWidth = 200;
+        const maxHeight = 60;
+        const scale = Math.min(maxWidth / signatureImage.width, maxHeight / signatureImage.height);
+        const sigWidth = signatureImage.width * scale;
+        const sigHeight = signatureImage.height * scale;
+
+        ctx.page.drawImage(signatureImage, {
+          x: PAGE.MARGIN_LEFT,
+          y: ctx.y - sigHeight,
+          width: sigWidth,
+          height: sigHeight,
+        });
+        ctx.y -= sigHeight + 5;
+      } else {
+        console.log('Signature format not recognized:', signatureData.substring(0, 50));
+        ctx.y -= 40;
+      }
+    } catch (sigError) {
+      console.error('Failed to embed signature:', sigError);
+      // Fall back to blank line
+      ctx.y -= 40;
+    }
+  } else {
+    // No signature - leave space for handwritten signature
+    ctx.y -= 40;
+  }
+
   // Signature line
   ctx.page.drawLine({
     start: { x: PAGE.MARGIN_LEFT, y: ctx.y },
@@ -485,9 +554,20 @@ async function generateInspectionPDF(
     font: ctx.fonts.regular,
     color: COLORS.TEXT_LIGHT,
   });
-  ctx.y -= 30;
+  ctx.y -= 25;
 
-  // Print name line
+  // Print inspector name (or line if not available)
+  const inspectorName = inspection.inspector_name || '';
+  if (inspectorName) {
+    ctx.page.drawText(inspectorName, {
+      x: PAGE.MARGIN_LEFT,
+      y: ctx.y + 5,
+      size: FONTS.BODY,
+      font: ctx.fonts.regular,
+      color: COLORS.TEXT_DARK,
+    });
+  }
+
   ctx.page.drawLine({
     start: { x: PAGE.MARGIN_LEFT, y: ctx.y },
     end: { x: PAGE.MARGIN_LEFT + 250, y: ctx.y },
@@ -503,9 +583,18 @@ async function generateInspectionPDF(
     font: ctx.fonts.regular,
     color: COLORS.TEXT_LIGHT,
   });
-  ctx.y -= 30;
+  ctx.y -= 25;
 
-  // Date line
+  // Print inspection date
+  const inspectionDateStr = formatDate(inspection.inspection_date);
+  ctx.page.drawText(inspectionDateStr, {
+    x: PAGE.MARGIN_LEFT,
+    y: ctx.y + 5,
+    size: FONTS.BODY,
+    font: ctx.fonts.regular,
+    color: COLORS.TEXT_DARK,
+  });
+
   ctx.page.drawLine({
     start: { x: PAGE.MARGIN_LEFT, y: ctx.y },
     end: { x: PAGE.MARGIN_LEFT + 250, y: ctx.y },

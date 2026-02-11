@@ -16,6 +16,7 @@ interface NoteCleanupCardProps {
   onAccept: (noteId: string) => void;
   onDecline: (noteId: string) => void;
   onEdit: (noteId: string, newText: string) => void;
+  onEditRaw?: (noteId: string, newRawText: string) => void;
   onRegenerate?: (noteId: string) => void;
 }
 
@@ -28,10 +29,13 @@ export function NoteCleanupCard({
   onAccept,
   onDecline,
   onEdit,
+  onEditRaw,
   onRegenerate,
 }: NoteCleanupCardProps) {
   const [isEditing, setIsEditing] = useState(false);
+  const [isEditingRaw, setIsEditingRaw] = useState(false);
   const [editedText, setEditedText] = useState(note.cleanedText || note.rawText);
+  const [editedRawText, setEditedRawText] = useState(note.rawText);
 
   const handleSaveEdit = () => {
     onEdit(note.id, editedText);
@@ -41,6 +45,18 @@ export function NoteCleanupCard({
   const handleCancelEdit = () => {
     setEditedText(note.cleanedText || note.rawText);
     setIsEditing(false);
+  };
+
+  const handleSaveRawEdit = () => {
+    if (onEditRaw) {
+      onEditRaw(note.id, editedRawText);
+    }
+    setIsEditingRaw(false);
+  };
+
+  const handleCancelRawEdit = () => {
+    setEditedRawText(note.rawText);
+    setIsEditingRaw(false);
   };
 
   const statusColors: Record<ReviewStatus, string> = {
@@ -90,13 +106,42 @@ export function NoteCleanupCard({
 
         {/* Original Note */}
         <div className="mb-4">
-          <p className="text-xs text-gray-500 mb-1">Original Note:</p>
-          <p className="text-sm text-gray-600 bg-gray-50 p-2 rounded">
-            {note.rawText}
-            {note.inputMethod === 'voice' && (
-              <span className="ml-2 text-xs text-gray-400">🎤 voice</span>
+          <div className="flex items-center justify-between mb-1">
+            <p className="text-xs text-gray-500">Original Note:</p>
+            {onEditRaw && !isEditingRaw && (
+              <button
+                onClick={() => setIsEditingRaw(true)}
+                className="text-xs text-blue-600 hover:text-blue-800"
+              >
+                ✏️ Edit Original
+              </button>
             )}
-          </p>
+          </div>
+          {isEditingRaw ? (
+            <div>
+              <TextArea
+                value={editedRawText}
+                onChange={(e) => setEditedRawText(e.target.value)}
+                rows={3}
+                autoFocus
+              />
+              <div className="flex gap-2 mt-2">
+                <Button size="sm" onClick={handleSaveRawEdit}>
+                  Save
+                </Button>
+                <Button size="sm" variant="secondary" onClick={handleCancelRawEdit}>
+                  Cancel
+                </Button>
+              </div>
+            </div>
+          ) : (
+            <p className="text-sm text-gray-600 bg-gray-50 p-2 rounded">
+              {note.rawText}
+              {note.inputMethod === 'voice' && (
+                <span className="ml-2 text-xs text-gray-400">🎤 voice</span>
+              )}
+            </p>
+          )}
         </div>
 
         {/* Cleaned/Edited Note */}

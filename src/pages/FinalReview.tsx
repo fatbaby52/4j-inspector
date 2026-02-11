@@ -6,6 +6,7 @@ import { Card, CardContent } from '@/components/common/Card';
 import { Button } from '@/components/common/Button';
 import { Header } from '@/components/layout/Header';
 import { SignatureCapture } from '@/components/common/SignatureCapture';
+import { SyncButton } from '@/components/sync/SyncButton';
 import { useInspectionStore } from '@/stores/inspectionStore';
 
 export function FinalReview() {
@@ -27,7 +28,15 @@ export function FinalReview() {
     await updateInspection({ inspectorSignature: dataUrl });
   }, [updateInspection]);
 
+  const handleNameChange = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    await updateInspection({ inspectorName: e.target.value });
+  }, [updateInspection]);
+
   const handleComplete = useCallback(async () => {
+    if (!currentInspection?.inspectorName?.trim()) {
+      alert('Please enter your name before completing the review.');
+      return;
+    }
     if (!currentInspection?.inspectorSignature) {
       alert('Please add your signature before completing the review.');
       return;
@@ -74,8 +83,9 @@ export function FinalReview() {
 
   // Check readiness
   const hasSummary = currentInspection.executiveSummary?.reviewStatus !== 'pending';
+  const hasName = !!currentInspection.inspectorName?.trim();
   const hasSignature = !!currentInspection.inspectorSignature;
-  const isReady = hasSummary && hasSignature;
+  const isReady = hasSummary && hasName && hasSignature;
 
   return (
     <div className="min-h-screen bg-gray-50 pb-32">
@@ -160,6 +170,10 @@ export function FinalReview() {
                 onClick={() => navigate(`/inspection/${id}/review/recommendations`)}
               />
               <ChecklistItem
+                label="Inspector name entered"
+                isComplete={hasName}
+              />
+              <ChecklistItem
                 label="Inspector signature added"
                 isComplete={hasSignature}
               />
@@ -167,35 +181,63 @@ export function FinalReview() {
           </CardContent>
         </Card>
 
-        {/* Signature */}
+        {/* Inspector Name & Signature */}
         <Card>
           <CardContent>
-            <SignatureCapture
-              label="Inspector Signature"
-              value={currentInspection.inspectorSignature}
-              onChange={handleSignatureChange}
-            />
-            <p className="text-xs text-gray-500 mt-2">
-              By signing, I certify that this inspection was performed according to professional
-              standards and the information in this report is accurate to the best of my knowledge.
-            </p>
+            <div className="space-y-4">
+              {/* Inspector Name Input */}
+              <div>
+                <label htmlFor="inspectorName" className="block text-sm font-medium text-gray-700 mb-2">
+                  Inspector Name
+                </label>
+                <input
+                  type="text"
+                  id="inspectorName"
+                  value={currentInspection.inspectorName || ''}
+                  onChange={handleNameChange}
+                  placeholder="Enter your full name"
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900"
+                />
+              </div>
+
+              {/* Signature */}
+              <SignatureCapture
+                label="Inspector Signature"
+                value={currentInspection.inspectorSignature}
+                onChange={handleSignatureChange}
+              />
+
+              <p className="text-xs text-gray-500">
+                By signing, I certify that this inspection was performed according to professional
+                standards and the information in this report is accurate to the best of my knowledge.
+              </p>
+            </div>
           </CardContent>
         </Card>
 
-        {/* Inspector info */}
+        {/* Inspection Date */}
         <Card>
           <CardContent>
-            <div className="flex justify-between items-start">
+            <div className="flex justify-between items-center">
+              <h4 className="text-sm font-medium text-gray-500">Inspection Date</h4>
+              <p className="font-medium text-gray-900">
+                {new Date(currentInspection.inspectionDate).toLocaleDateString()}
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Sync to Cloud */}
+        <Card className="bg-blue-50 border-blue-200">
+          <CardContent>
+            <div className="flex items-center justify-between">
               <div>
-                <h4 className="text-sm font-medium text-gray-500">Inspector</h4>
-                <p className="font-medium text-gray-900">{currentInspection.inspectorName}</p>
-              </div>
-              <div className="text-right">
-                <h4 className="text-sm font-medium text-gray-500">Date</h4>
-                <p className="font-medium text-gray-900">
-                  {new Date(currentInspection.inspectionDate).toLocaleDateString()}
+                <h4 className="font-medium text-blue-900">Sync to Cloud</h4>
+                <p className="text-sm text-blue-700">
+                  Sync your data before generating the report
                 </p>
               </div>
+              <SyncButton variant="primary" />
             </div>
           </CardContent>
         </Card>

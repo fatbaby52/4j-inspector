@@ -10,7 +10,10 @@ import { useInspectionStore } from '@/stores/inspectionStore';
 import { useAutoSave } from '@/hooks/useAutoSave';
 import { useCamera } from '@/hooks/useCamera';
 import { photoStore } from '@/db/photoStore';
+import { savePhoto } from '@/db/database';
+import { addToQueue } from '@/db/syncQueue';
 import type { CompressedPhoto } from '@/hooks/usePhotoCompression';
+import type { Photo } from '@/types/inspection';
 
 interface PropertyAddress {
   street: string;
@@ -46,10 +49,36 @@ export function PropertyInfo() {
       // Store blob locally
       await photoStore.saveBlob(localBlobId, photo.fullSize);
 
+      // Create photo record for local DB
+      const photoRecord: Photo = {
+        id: photoId,
+        inspectionId: currentInspection.id,
+        observationId: 'facade', // Special marker for facade photos
+        localBlobId,
+        timestamp: new Date(),
+        originalSize: photo.originalSize || photo.fullSize.size,
+        compressedSize: photo.fullSize.size,
+        syncStatus: 'queued',
+      };
+
+      // Save photo record to local DB
+      await savePhoto(photoRecord);
+
+      // Add to sync queue for upload
+      await addToQueue({
+        inspectionId: currentInspection.id,
+        action: 'upload-photo',
+        payload: {
+          photoId,
+          inspectionId: currentInspection.id,
+          localBlobId,
+        },
+      });
+
       // Update inspection with facade photo reference
       await updateInspection({ facadePhotoId: photoId });
 
-      // Store the local blob ID for retrieval
+      // Store the local blob ID for retrieval (for display)
       localStorage.setItem(`facade-photo-${currentInspection.id}`, localBlobId);
 
       // Create URL for display

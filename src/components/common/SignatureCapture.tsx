@@ -54,6 +54,7 @@ export function SignatureCapture({
 
   const handleEnd = useCallback(() => {
     if (sigRef.current && !sigRef.current.isEmpty()) {
+      // Use PNG to preserve transparency (signature on transparent background)
       const dataUrl = sigRef.current.toDataURL('image/png');
       onChange(dataUrl);
       setIsEmpty(false);

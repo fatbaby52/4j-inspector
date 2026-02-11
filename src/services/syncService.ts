@@ -127,6 +127,16 @@ async function syncInspection(inspection: any): Promise<void> {
   // Always use a fixed valid UUID for inspector_id since we removed auth
   const fixedInspectorId = '00000000-0000-0000-0000-000000000001';
 
+  // Debug: check if signature is in the inspection object
+  console.log('=== SYNC DEBUG ===');
+  console.log('inspection.inspectorSignature exists:', !!inspection.inspectorSignature);
+  console.log('inspection.inspector_signature exists:', !!inspection.inspector_signature);
+  if (inspection.inspectorSignature) {
+    console.log('inspectorSignature length:', inspection.inspectorSignature.length);
+    console.log('inspectorSignature prefix:', inspection.inspectorSignature.substring(0, 50));
+  }
+  console.log('=== END SYNC DEBUG ===');
+
   const payload = {
     id: inspection.id,
     type: inspection.type,
@@ -140,14 +150,19 @@ async function syncInspection(inspection: any): Promise<void> {
     observations: inspection.observations || {},
     executive_summary: inspection.executiveSummary || null,
     recommendations: inspection.recommendations || [],
-    facade_photo_id: inspection.facadePhotoId || null,
+    facade_photo_id: inspection.facadePhotoId || inspection.facade_photo_id || null,
+    inspector_signature: inspection.inspectorSignature || inspection.inspector_signature || null,
     version: inspection.version || 1,
     last_edited_by_device_id: inspection.lastEditedByDeviceId || null,
     last_edited_by_device_type: inspection.lastEditedByDeviceType || null,
     updated_at: new Date().toISOString(),
   };
 
-  console.log('Syncing inspection:', payload);
+  console.log('Syncing inspection payload:');
+  console.log('- inspector_signature in payload:', !!payload.inspector_signature);
+  if (payload.inspector_signature) {
+    console.log('- payload signature length:', payload.inspector_signature.length);
+  }
 
   const { error } = await supabase!
     .from('inspections')
