@@ -832,11 +832,13 @@ async function generateInspectionPDF(
   const totalPages = doc.getPageCount();
 
   // TOC positioning (right column, aligned with bottom section)
-  const tocBoxX = PAGE.WIDTH / 2 + 15;
-  const tocBoxWidth = PAGE.WIDTH / 2 - 15 - PAGE.MARGIN_RIGHT;
-  const tocBoxY = 280; // Same as bottomSectionY in drawCoverPage
-  const tocRowHeight = 22;
+  const tocBoxX = PAGE.WIDTH / 2 + 35; // More gap from left column
+  const tocBoxWidth = PAGE.WIDTH / 2 - 35 - PAGE.MARGIN_RIGHT;
+  const tocBoxY = 320; // Same as bottomSectionY in drawCoverPage
+  const tocRowHeight = 20; // Same as left column
   const tocPadding = 8;
+  const tocHeaderFontSize = FONTS.SMALL; // Same as left column headers
+  const tocDataFontSize = FONTS.SMALL; // Same as left column data
 
   // Draw TOC header row (first row of table)
   coverPage.drawRectangle({
@@ -848,8 +850,8 @@ async function generateInspectionPDF(
   });
   coverPage.drawText('TABLE OF CONTENTS', {
     x: tocBoxX + tocPadding,
-    y: tocBoxY - tocRowHeight + 7,
-    size: FONTS.SMALL,
+    y: tocBoxY - tocRowHeight + 6,
+    size: tocHeaderFontSize,
     font: ctx.fonts.bold,
     color: COLORS.WHITE,
   });
@@ -874,18 +876,18 @@ async function generateInspectionPDF(
     // Draw title
     coverPage.drawText(entry.title, {
       x: tocBoxX + tocPadding,
-      y: rowY - tocRowHeight + 7,
-      size: FONTS.SMALL,
+      y: rowY - tocRowHeight + 6,
+      size: tocDataFontSize,
       font: ctx.fonts.regular,
       color: COLORS.WHITE,
     });
 
     // Draw page number (right-aligned)
-    const pageNumWidth = ctx.fonts.regular.widthOfTextAtSize(pageText, FONTS.SMALL);
+    const pageNumWidth = ctx.fonts.regular.widthOfTextAtSize(pageText, tocDataFontSize);
     coverPage.drawText(pageText, {
       x: tocBoxX + tocBoxWidth - tocPadding - pageNumWidth,
-      y: rowY - tocRowHeight + 7,
-      size: FONTS.SMALL,
+      y: rowY - tocRowHeight + 6,
+      size: tocDataFontSize,
       font: ctx.fonts.bold,
       color: COLORS.WHITE,
     });
@@ -1023,11 +1025,13 @@ async function drawCoverPage(
   // ==========================================
   // BOTTOM SECTION: Two-Column Layout (tables)
   // ==========================================
-  const bottomSectionY = 280; // Fixed position from bottom
+  const bottomSectionY = 320; // Moved up to avoid logo
   const leftColumnX = PAGE.MARGIN_LEFT;
-  const leftColumnWidth = PAGE.WIDTH / 2 - 30;
-  const tableRowHeight = 22;
+  const leftColumnWidth = PAGE.WIDTH / 2 - 50; // Narrower to add gap
+  const tableRowHeight = 20;
   const tablePadding = 8;
+  const headerFontSize = FONTS.SMALL;
+  const dataFontSize = FONTS.SMALL;
 
   // Helper to draw a info table box
   const drawInfoTable = (label: string, value: string, startY: number): number => {
@@ -1041,8 +1045,8 @@ async function drawCoverPage(
     });
     page.drawText(label, {
       x: leftColumnX + tablePadding,
-      y: startY - tableRowHeight + 7,
-      size: FONTS.SMALL,
+      y: startY - tableRowHeight + 6,
+      size: headerFontSize,
       font: fonts.bold,
       color: COLORS.WHITE,
     });
@@ -1057,13 +1061,13 @@ async function drawCoverPage(
     });
     page.drawText(value, {
       x: leftColumnX + tablePadding,
-      y: startY - tableRowHeight * 2 + 7,
-      size: FONTS.SMALL + 1,
+      y: startY - tableRowHeight * 2 + 6,
+      size: dataFontSize,
       font: fonts.regular,
       color: COLORS.WHITE,
     });
 
-    return startY - tableRowHeight * 2 - 8; // Return next Y position with gap
+    return startY - tableRowHeight * 2 - 6; // Return next Y position with gap
   };
 
   let leftY = bottomSectionY;
@@ -1079,8 +1083,8 @@ async function drawCoverPage(
   });
   page.drawText('PROPERTY ADDRESS', {
     x: leftColumnX + tablePadding,
-    y: leftY - tableRowHeight + 7,
-    size: FONTS.SMALL,
+    y: leftY - tableRowHeight + 6,
+    size: headerFontSize,
     font: fonts.bold,
     color: COLORS.WHITE,
   });
@@ -1096,8 +1100,8 @@ async function drawCoverPage(
   });
   page.drawText(addressLine1, {
     x: leftColumnX + tablePadding,
-    y: leftY - tableRowHeight * 2 + 7,
-    size: FONTS.SMALL + 1,
+    y: leftY - tableRowHeight * 2 + 6,
+    size: dataFontSize,
     font: fonts.bold,
     color: COLORS.WHITE,
   });
@@ -1113,13 +1117,13 @@ async function drawCoverPage(
   });
   page.drawText(addressLine2 || 'N/A', {
     x: leftColumnX + tablePadding,
-    y: leftY - tableRowHeight * 3 + 7,
-    size: FONTS.SMALL + 1,
+    y: leftY - tableRowHeight * 3 + 6,
+    size: dataFontSize,
     font: fonts.regular,
     color: COLORS.WHITE,
   });
 
-  leftY -= tableRowHeight * 3 + 8;
+  leftY -= tableRowHeight * 3 + 6;
 
   // Prepared For table
   leftY = drawInfoTable('PREPARED FOR', client.name || 'Client', leftY);
