@@ -826,15 +826,15 @@ async function generateInspectionPDF(
   });
 
   // ==========================================
-  // ADD TABLE OF CONTENTS TO COVER PAGE (right column)
+  // ADD TABLE OF CONTENTS TO COVER PAGE (right column, bottom section)
   // ==========================================
   const coverPage = doc.getPage(0);
   const totalPages = doc.getPageCount();
 
-  // TOC positioning (right column)
+  // TOC positioning (right column, aligned with bottom section)
   const tocBoxX = PAGE.WIDTH / 2 + 15;
   const tocBoxWidth = PAGE.WIDTH / 2 - 15 - PAGE.MARGIN_RIGHT;
-  const tocBoxY = PAGE.HEIGHT - 180; // Start below title area
+  const tocBoxY = 280; // Same as bottomSectionY in drawCoverPage
   const tocRowHeight = 22;
   const tocPadding = 10;
 
@@ -941,7 +941,7 @@ async function drawCoverPage(
   }
 
   // ==========================================
-  // HEADER SECTION (Full Width)
+  // TOP SECTION: Title + Large Centered Photo
   // ==========================================
   let y = PAGE.HEIGHT - 80;
   const title = 'PROPERTY INSPECTION REPORT';
@@ -966,21 +966,8 @@ async function drawCoverPage(
     color: COLORS.WHITE,
   });
 
-  // ==========================================
-  // TWO-COLUMN LAYOUT
-  // ==========================================
-  const columnStartY = y - 40;
-  const leftColumnX = PAGE.MARGIN_LEFT;
-  const leftColumnWidth = PAGE.WIDTH / 2 - 30;
-  const rightColumnX = PAGE.WIDTH / 2 + 15;
-  const rightColumnWidth = PAGE.WIDTH / 2 - 15 - PAGE.MARGIN_RIGHT;
-
-  // ==========================================
-  // LEFT COLUMN: Property Info
-  // ==========================================
-  let leftY = columnStartY;
-
-  // Facade photo (if available)
+  // Large centered facade photo
+  y -= 30;
   if (facadePhotoUrl) {
     try {
       const response = await fetch(facadePhotoUrl);
@@ -996,9 +983,9 @@ async function drawCoverPage(
             image = await doc.embedJpg(imageBytes);
           }
 
-          // Calculate dimensions to fit in left column
-          const maxWidth = leftColumnWidth;
-          const maxHeight = 180;
+          // Calculate dimensions - large centered image
+          const maxWidth = 400;
+          const maxHeight = 250;
           const aspectRatio = image.width / image.height;
           let drawWidth = Math.min(maxWidth, image.width);
           let drawHeight = drawWidth / aspectRatio;
@@ -1008,14 +995,17 @@ async function drawCoverPage(
             drawWidth = drawHeight * aspectRatio;
           }
 
+          // Center the image
+          const imageX = centerX - drawWidth / 2;
+
           page.drawImage(image, {
-            x: leftColumnX,
-            y: leftY - drawHeight,
+            x: imageX,
+            y: y - drawHeight,
             width: drawWidth,
             height: drawHeight,
           });
 
-          leftY -= drawHeight + 25;
+          y -= drawHeight + 20;
         } catch (e) {
           console.error('Failed to embed facade image:', e);
         }
@@ -1024,6 +1014,18 @@ async function drawCoverPage(
       console.error('Failed to fetch facade image:', e);
     }
   }
+
+  // ==========================================
+  // BOTTOM SECTION: Two-Column Layout
+  // ==========================================
+  const bottomSectionY = 280; // Fixed position from bottom
+  const leftColumnX = PAGE.MARGIN_LEFT;
+  const rightColumnX = PAGE.WIDTH / 2 + 15;
+
+  // ==========================================
+  // LEFT COLUMN: Property Info
+  // ==========================================
+  let leftY = bottomSectionY;
 
   // Property Address section
   page.drawText('PROPERTY ADDRESS', {
