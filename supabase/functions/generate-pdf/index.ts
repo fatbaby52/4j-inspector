@@ -836,31 +836,36 @@ async function generateInspectionPDF(
   const tocBoxWidth = PAGE.WIDTH / 2 - 15 - PAGE.MARGIN_RIGHT;
   const tocBoxY = 280; // Same as bottomSectionY in drawCoverPage
   const tocRowHeight = 22;
-  const tocPadding = 10;
+  const tocPadding = 8;
 
-  // Draw TOC title
-  coverPage.drawText('TABLE OF CONTENTS', {
+  // Draw TOC header row (first row of table)
+  coverPage.drawRectangle({
     x: tocBoxX,
-    y: tocBoxY + 25,
-    size: FONTS.BODY,
+    y: tocBoxY - tocRowHeight,
+    width: tocBoxWidth,
+    height: tocRowHeight,
+    color: rgb(0.25, 0.25, 0.25),
+  });
+  coverPage.drawText('TABLE OF CONTENTS', {
+    x: tocBoxX + tocPadding,
+    y: tocBoxY - tocRowHeight + 7,
+    size: FONTS.SMALL,
     font: ctx.fonts.bold,
     color: COLORS.WHITE,
   });
 
-  // Draw TOC box with alternating row colors
-  const tocBoxHeight = tocEntries.length * tocRowHeight + 2 * tocPadding;
-
+  // Draw TOC entries with alternating row colors
   for (let i = 0; i < tocEntries.length; i++) {
-    const rowY = tocBoxY - tocPadding - (i * tocRowHeight);
+    const rowY = tocBoxY - tocRowHeight - (i * tocRowHeight); // Start below header
     const isEven = i % 2 === 0;
 
     // Draw alternating row background
     coverPage.drawRectangle({
       x: tocBoxX,
-      y: rowY - tocRowHeight + 5,
+      y: rowY - tocRowHeight,
       width: tocBoxWidth,
       height: tocRowHeight,
-      color: isEven ? rgb(0.35, 0.35, 0.35) : rgb(0.25, 0.25, 0.25),
+      color: isEven ? rgb(0.35, 0.35, 0.35) : rgb(0.30, 0.30, 0.30),
     });
 
     const entry = tocEntries[i];
@@ -869,7 +874,7 @@ async function generateInspectionPDF(
     // Draw title
     coverPage.drawText(entry.title, {
       x: tocBoxX + tocPadding,
-      y: rowY - tocRowHeight + 12,
+      y: rowY - tocRowHeight + 7,
       size: FONTS.SMALL,
       font: ctx.fonts.regular,
       color: COLORS.WHITE,
@@ -879,7 +884,7 @@ async function generateInspectionPDF(
     const pageNumWidth = ctx.fonts.regular.widthOfTextAtSize(pageText, FONTS.SMALL);
     coverPage.drawText(pageText, {
       x: tocBoxX + tocBoxWidth - tocPadding - pageNumWidth,
-      y: rowY - tocRowHeight + 12,
+      y: rowY - tocRowHeight + 7,
       size: FONTS.SMALL,
       font: ctx.fonts.bold,
       color: COLORS.WHITE,
@@ -1016,77 +1021,114 @@ async function drawCoverPage(
   }
 
   // ==========================================
-  // BOTTOM SECTION: Two-Column Layout
+  // BOTTOM SECTION: Two-Column Layout (tables)
   // ==========================================
   const bottomSectionY = 280; // Fixed position from bottom
   const leftColumnX = PAGE.MARGIN_LEFT;
-  const rightColumnX = PAGE.WIDTH / 2 + 15;
+  const leftColumnWidth = PAGE.WIDTH / 2 - 30;
+  const tableRowHeight = 22;
+  const tablePadding = 8;
 
-  // ==========================================
-  // LEFT COLUMN: Property Info
-  // ==========================================
+  // Helper to draw a info table box
+  const drawInfoTable = (label: string, value: string, startY: number): number => {
+    // Header row (dark)
+    page.drawRectangle({
+      x: leftColumnX,
+      y: startY - tableRowHeight,
+      width: leftColumnWidth,
+      height: tableRowHeight,
+      color: rgb(0.25, 0.25, 0.25),
+    });
+    page.drawText(label, {
+      x: leftColumnX + tablePadding,
+      y: startY - tableRowHeight + 7,
+      size: FONTS.SMALL,
+      font: fonts.bold,
+      color: COLORS.WHITE,
+    });
+
+    // Value row (lighter)
+    page.drawRectangle({
+      x: leftColumnX,
+      y: startY - tableRowHeight * 2,
+      width: leftColumnWidth,
+      height: tableRowHeight,
+      color: rgb(0.35, 0.35, 0.35),
+    });
+    page.drawText(value, {
+      x: leftColumnX + tablePadding,
+      y: startY - tableRowHeight * 2 + 7,
+      size: FONTS.SMALL + 1,
+      font: fonts.regular,
+      color: COLORS.WHITE,
+    });
+
+    return startY - tableRowHeight * 2 - 8; // Return next Y position with gap
+  };
+
   let leftY = bottomSectionY;
 
-  // Property Address section
-  page.drawText('PROPERTY ADDRESS', {
+  // Property Address table (with two value rows for street + city/state)
+  // Header row
+  page.drawRectangle({
     x: leftColumnX,
-    y: leftY,
-    size: FONTS.SMALL,
-    font: fonts.bold,
-    color: rgb(0.7, 0.7, 0.7),
+    y: leftY - tableRowHeight,
+    width: leftColumnWidth,
+    height: tableRowHeight,
+    color: rgb(0.25, 0.25, 0.25),
   });
-  leftY -= 18;
-
-  const addressLine1 = address.street || 'Address Not Specified';
-  page.drawText(addressLine1, {
-    x: leftColumnX,
-    y: leftY,
-    size: FONTS.SECTION_HEADER,
+  page.drawText('PROPERTY ADDRESS', {
+    x: leftColumnX + tablePadding,
+    y: leftY - tableRowHeight + 7,
+    size: FONTS.SMALL,
     font: fonts.bold,
     color: COLORS.WHITE,
   });
-  leftY -= 18;
 
+  // Street row
+  const addressLine1 = address.street || 'Address Not Specified';
+  page.drawRectangle({
+    x: leftColumnX,
+    y: leftY - tableRowHeight * 2,
+    width: leftColumnWidth,
+    height: tableRowHeight,
+    color: rgb(0.35, 0.35, 0.35),
+  });
+  page.drawText(addressLine1, {
+    x: leftColumnX + tablePadding,
+    y: leftY - tableRowHeight * 2 + 7,
+    size: FONTS.SMALL + 1,
+    font: fonts.bold,
+    color: COLORS.WHITE,
+  });
+
+  // City/State row
   const addressLine2 = `${address.city || ''}${address.city && address.state ? ', ' : ''}${address.state || ''} ${address.zip || ''}`.trim();
-  if (addressLine2) {
-    page.drawText(addressLine2, {
-      x: leftColumnX,
-      y: leftY,
-      size: FONTS.BODY,
-      font: fonts.regular,
-      color: COLORS.WHITE,
-    });
-    leftY -= 30;
-  }
+  page.drawRectangle({
+    x: leftColumnX,
+    y: leftY - tableRowHeight * 3,
+    width: leftColumnWidth,
+    height: tableRowHeight,
+    color: rgb(0.30, 0.30, 0.30),
+  });
+  page.drawText(addressLine2 || 'N/A', {
+    x: leftColumnX + tablePadding,
+    y: leftY - tableRowHeight * 3 + 7,
+    size: FONTS.SMALL + 1,
+    font: fonts.regular,
+    color: COLORS.WHITE,
+  });
 
-  // Meta information with labels
-  const metaItems = [
-    { label: 'PREPARED FOR', value: client.name || 'Client' },
-    { label: 'INSPECTION DATE', value: formatDate(inspection.inspection_date) },
-    { label: 'INSPECTOR', value: inspection.inspector_name || 'Inspector' },
-  ];
+  leftY -= tableRowHeight * 3 + 8;
 
-  for (const item of metaItems) {
-    // Label
-    page.drawText(item.label, {
-      x: leftColumnX,
-      y: leftY,
-      size: FONTS.SMALL,
-      font: fonts.bold,
-      color: rgb(0.7, 0.7, 0.7),
-    });
-    leftY -= 16;
+  // Prepared For table
+  leftY = drawInfoTable('PREPARED FOR', client.name || 'Client', leftY);
 
-    // Value
-    page.drawText(item.value, {
-      x: leftColumnX,
-      y: leftY,
-      size: FONTS.BODY + 1,
-      font: fonts.regular,
-      color: COLORS.WHITE,
-    });
-    leftY -= 25;
-  }
+  // Inspection Date table
+  leftY = drawInfoTable('INSPECTION DATE', formatDate(inspection.inspection_date), leftY);
+
+  // Inspector table
+  leftY = drawInfoTable('INSPECTOR', inspection.inspector_name || 'Inspector', leftY);
 
   // Note: Table of Contents is drawn in the right column at the end of PDF generation
   // (after we know all the page numbers)
