@@ -487,10 +487,13 @@ async function generateInspectionPDF(
 
       // Draw limitations box
       if (limitations) {
-        // Draw limitations in a subtle box
-        const boxPadding = 10;
-        const limitationsLines = wrapTextToLines(limitations, ctx.fonts.regular, FONTS.SMALL, PAGE.CONTENT_WIDTH - 2 * boxPadding);
-        const boxHeight = limitationsLines.length * (FONTS.SMALL * 1.4) + 2 * boxPadding;
+        // Draw limitations in a subtle box with 10px padding on all sides
+        const boxPaddingX = 10;
+        const boxPaddingY = 10;
+        const labelHeight = FONTS.SMALL + 4; // "Limitations:" label
+        const limitationsLines = wrapTextToLines(limitations, ctx.fonts.regular, FONTS.SMALL, PAGE.CONTENT_WIDTH - 2 * boxPaddingX);
+        const textHeight = limitationsLines.length * (FONTS.SMALL * 1.4);
+        const boxHeight = boxPaddingY + labelHeight + textHeight + boxPaddingY;
 
         ctx.page.drawRectangle({
           x: PAGE.MARGIN_LEFT,
@@ -502,20 +505,20 @@ async function generateInspectionPDF(
           borderWidth: 0.5,
         });
 
-        // Draw "Limitations:" label
+        // Draw "Limitations:" label (10px from top)
         ctx.page.drawText('Limitations:', {
-          x: PAGE.MARGIN_LEFT + boxPadding,
-          y: ctx.y - boxPadding - FONTS.SMALL,
+          x: PAGE.MARGIN_LEFT + boxPaddingX,
+          y: ctx.y - boxPaddingY - FONTS.SMALL,
           size: FONTS.SMALL,
           font: ctx.fonts.bold,
           color: COLORS.TEXT_LIGHT,
         });
 
-        // Draw limitations text
-        let limitY = ctx.y - boxPadding - FONTS.SMALL - 12;
+        // Draw limitations text (below label)
+        let limitY = ctx.y - boxPaddingY - labelHeight - FONTS.SMALL;
         for (const line of limitationsLines) {
           ctx.page.drawText(line, {
-            x: PAGE.MARGIN_LEFT + boxPadding,
+            x: PAGE.MARGIN_LEFT + boxPaddingX,
             y: limitY,
             size: FONTS.SMALL,
             font: ctx.fonts.regular,
@@ -823,33 +826,50 @@ async function generateInspectionPDF(
   });
 
   // ==========================================
-  // ADD TABLE OF CONTENTS TO COVER PAGE
+  // ADD TABLE OF CONTENTS TO COVER PAGE (right column)
   // ==========================================
   const coverPage = doc.getPage(0);
   const totalPages = doc.getPageCount();
 
-  // Draw TOC title on cover page (positioned at bottom area, above logo)
-  const tocY = 180; // Position above the logo area
-  const tocX = PAGE.MARGIN_LEFT + 50;
+  // TOC positioning (right column)
+  const tocBoxX = PAGE.WIDTH / 2 + 15;
+  const tocBoxWidth = PAGE.WIDTH / 2 - 15 - PAGE.MARGIN_RIGHT;
+  const tocBoxY = PAGE.HEIGHT - 180; // Start below title area
+  const tocRowHeight = 22;
+  const tocPadding = 10;
 
+  // Draw TOC title
   coverPage.drawText('TABLE OF CONTENTS', {
-    x: tocX,
-    y: tocY,
-    size: FONTS.SMALL + 1,
+    x: tocBoxX,
+    y: tocBoxY + 25,
+    size: FONTS.BODY,
     font: ctx.fonts.bold,
     color: COLORS.WHITE,
   });
 
-  // Draw TOC entries
-  let tocLineY = tocY - 18;
-  for (const entry of tocEntries) {
+  // Draw TOC box with alternating row colors
+  const tocBoxHeight = tocEntries.length * tocRowHeight + 2 * tocPadding;
+
+  for (let i = 0; i < tocEntries.length; i++) {
+    const rowY = tocBoxY - tocPadding - (i * tocRowHeight);
+    const isEven = i % 2 === 0;
+
+    // Draw alternating row background
+    coverPage.drawRectangle({
+      x: tocBoxX,
+      y: rowY - tocRowHeight + 5,
+      width: tocBoxWidth,
+      height: tocRowHeight,
+      color: isEven ? rgb(0.35, 0.35, 0.35) : rgb(0.25, 0.25, 0.25),
+    });
+
+    const entry = tocEntries[i];
     const pageText = `${entry.pageNumber}`;
-    const titleText = entry.title;
 
     // Draw title
-    coverPage.drawText(titleText, {
-      x: tocX,
-      y: tocLineY,
+    coverPage.drawText(entry.title, {
+      x: tocBoxX + tocPadding,
+      y: rowY - tocRowHeight + 12,
       size: FONTS.SMALL,
       font: ctx.fonts.regular,
       color: COLORS.WHITE,
@@ -858,30 +878,12 @@ async function generateInspectionPDF(
     // Draw page number (right-aligned)
     const pageNumWidth = ctx.fonts.regular.widthOfTextAtSize(pageText, FONTS.SMALL);
     coverPage.drawText(pageText, {
-      x: PAGE.WIDTH - PAGE.MARGIN_RIGHT - 50 - pageNumWidth,
-      y: tocLineY,
+      x: tocBoxX + tocBoxWidth - tocPadding - pageNumWidth,
+      y: rowY - tocRowHeight + 12,
       size: FONTS.SMALL,
-      font: ctx.fonts.regular,
+      font: ctx.fonts.bold,
       color: COLORS.WHITE,
     });
-
-    // Draw dot leader between title and page number
-    const titleWidth = ctx.fonts.regular.widthOfTextAtSize(titleText, FONTS.SMALL);
-    const dotsStartX = tocX + titleWidth + 5;
-    const dotsEndX = PAGE.WIDTH - PAGE.MARGIN_RIGHT - 50 - pageNumWidth - 5;
-    let dotX = dotsStartX;
-    while (dotX < dotsEndX) {
-      coverPage.drawText('.', {
-        x: dotX,
-        y: tocLineY,
-        size: FONTS.SMALL,
-        font: ctx.fonts.regular,
-        color: rgb(0.6, 0.6, 0.6),
-      });
-      dotX += 6;
-    }
-
-    tocLineY -= 14;
   }
 
   // ==========================================
@@ -933,15 +935,15 @@ async function drawCoverPage(
 
   // Draw 4J logo in bottom-left corner
   if (logoImage) {
-    // Use actual logo image (left-aligned, 40px from bottom and left)
-    drawLogoImage(page, logoImage, 40 + 150, 40, 40, 150); // x is right edge of logo, so add width
+    drawLogoImage(page, logoImage, 40 + 150, 40, 40, 150);
   } else {
-    // Fallback to drawn logo
     drawLogo(page, fonts.bold, 40, 40, 50);
   }
 
-  // Title
-  let y = PAGE.HEIGHT - 100;
+  // ==========================================
+  // HEADER SECTION (Full Width)
+  // ==========================================
+  let y = PAGE.HEIGHT - 80;
   const title = 'PROPERTY INSPECTION REPORT';
   const titleWidth = fonts.bold.widthOfTextAtSize(title, FONTS.TITLE);
 
@@ -954,9 +956,8 @@ async function drawCoverPage(
   });
 
   // Subtitle (inspection type)
-  y -= 35;
+  y -= 30;
   const subtitleWidth = fonts.regular.widthOfTextAtSize(inspectionType, FONTS.SECTION_HEADER);
-
   page.drawText(inspectionType, {
     x: centerX - subtitleWidth / 2,
     y,
@@ -965,8 +966,21 @@ async function drawCoverPage(
     color: COLORS.WHITE,
   });
 
+  // ==========================================
+  // TWO-COLUMN LAYOUT
+  // ==========================================
+  const columnStartY = y - 40;
+  const leftColumnX = PAGE.MARGIN_LEFT;
+  const leftColumnWidth = PAGE.WIDTH / 2 - 30;
+  const rightColumnX = PAGE.WIDTH / 2 + 15;
+  const rightColumnWidth = PAGE.WIDTH / 2 - 15 - PAGE.MARGIN_RIGHT;
+
+  // ==========================================
+  // LEFT COLUMN: Property Info
+  // ==========================================
+  let leftY = columnStartY;
+
   // Facade photo (if available)
-  y -= 30;
   if (facadePhotoUrl) {
     try {
       const response = await fetch(facadePhotoUrl);
@@ -982,9 +996,9 @@ async function drawCoverPage(
             image = await doc.embedJpg(imageBytes);
           }
 
-          // Calculate dimensions to fit nicely on cover
-          const maxWidth = 350;
-          const maxHeight = 220;
+          // Calculate dimensions to fit in left column
+          const maxWidth = leftColumnWidth;
+          const maxHeight = 180;
           const aspectRatio = image.width / image.height;
           let drawWidth = Math.min(maxWidth, image.width);
           let drawHeight = drawWidth / aspectRatio;
@@ -994,17 +1008,14 @@ async function drawCoverPage(
             drawWidth = drawHeight * aspectRatio;
           }
 
-          // Center the image
-          const imageX = centerX - drawWidth / 2;
-
           page.drawImage(image, {
-            x: imageX,
-            y: y - drawHeight,
+            x: leftColumnX,
+            y: leftY - drawHeight,
             width: drawWidth,
             height: drawHeight,
           });
 
-          y -= drawHeight + 20;
+          leftY -= drawHeight + 25;
         } catch (e) {
           console.error('Failed to embed facade image:', e);
         }
@@ -1014,55 +1025,69 @@ async function drawCoverPage(
     }
   }
 
-  // Address box
-  y -= 20;
-  const addressLine1 = address.street || 'Address Not Specified';
-  const addressLine2 = `${address.city || ''}${address.city && address.state ? ', ' : ''}${address.state || ''} ${address.zip || ''}`.trim();
+  // Property Address section
+  page.drawText('PROPERTY ADDRESS', {
+    x: leftColumnX,
+    y: leftY,
+    size: FONTS.SMALL,
+    font: fonts.bold,
+    color: rgb(0.7, 0.7, 0.7),
+  });
+  leftY -= 18;
 
-  // Address text
-  const addr1Width = fonts.bold.widthOfTextAtSize(addressLine1, 16);
+  const addressLine1 = address.street || 'Address Not Specified';
   page.drawText(addressLine1, {
-    x: centerX - addr1Width / 2,
-    y,
-    size: 16,
+    x: leftColumnX,
+    y: leftY,
+    size: FONTS.SECTION_HEADER,
     font: fonts.bold,
     color: COLORS.WHITE,
   });
+  leftY -= 18;
 
+  const addressLine2 = `${address.city || ''}${address.city && address.state ? ', ' : ''}${address.state || ''} ${address.zip || ''}`.trim();
   if (addressLine2) {
-    y -= 22;
-    const addr2Width = fonts.regular.widthOfTextAtSize(addressLine2, FONTS.BODY);
     page.drawText(addressLine2, {
-      x: centerX - addr2Width / 2,
-      y,
+      x: leftColumnX,
+      y: leftY,
       size: FONTS.BODY,
       font: fonts.regular,
       color: COLORS.WHITE,
     });
+    leftY -= 30;
   }
 
-  // Meta information
-  y -= 40;
-
+  // Meta information with labels
   const metaItems = [
-    { label: 'Prepared for:', value: client.name || 'Client' },
-    { label: 'Inspection Date:', value: formatDate(inspection.inspection_date) },
-    { label: 'Inspector:', value: inspection.inspector_name || 'Inspector' },
+    { label: 'PREPARED FOR', value: client.name || 'Client' },
+    { label: 'INSPECTION DATE', value: formatDate(inspection.inspection_date) },
+    { label: 'INSPECTOR', value: inspection.inspector_name || 'Inspector' },
   ];
 
   for (const item of metaItems) {
-    const text = `${item.label} ${item.value}`;
-    const textWidth = fonts.regular.widthOfTextAtSize(text, FONTS.BODY);
+    // Label
+    page.drawText(item.label, {
+      x: leftColumnX,
+      y: leftY,
+      size: FONTS.SMALL,
+      font: fonts.bold,
+      color: rgb(0.7, 0.7, 0.7),
+    });
+    leftY -= 16;
 
-    page.drawText(text, {
-      x: centerX - textWidth / 2,
-      y,
-      size: FONTS.BODY,
+    // Value
+    page.drawText(item.value, {
+      x: leftColumnX,
+      y: leftY,
+      size: FONTS.BODY + 1,
       font: fonts.regular,
       color: COLORS.WHITE,
     });
-    y -= 22;
+    leftY -= 25;
   }
+
+  // Note: Table of Contents is drawn in the right column at the end of PDF generation
+  // (after we know all the page numbers)
 
   return ctx;
 }
