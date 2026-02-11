@@ -47,6 +47,38 @@ const ITEM_ORDER: Record<string, string[]> = {
   safety: ['safe-detectors', 'safe-security', 'safe-other'],
 };
 
+// Category limitations text (from inspectionCategories.ts)
+const CATEGORY_LIMITATIONS: Record<string, string> = {
+  exterior: 'The exterior inspection is limited to visible and accessible areas only. Areas concealed by vegetation, snow, stored items, or other obstructions were not inspected. Underground drainage systems, buried utilities, and structural elements below grade were not evaluated.',
+  interior: 'The interior inspection is limited to visible and accessible areas. Furniture, stored items, and personal belongings were not moved. Areas behind walls, above ceilings, and below floors were not inspected. Cosmetic conditions are noted but not the primary focus of this inspection.',
+  roofing: 'The roof inspection was performed from ground level and/or accessible areas. Walking on the roof surface was limited based on safety considerations, roof pitch, and surface conditions. Roof covering life expectancy estimates are approximations only. Hidden damage beneath roofing materials cannot be detected without removal.',
+  plumbing: 'The plumbing inspection is limited to visible and accessible components only. Pipes concealed within walls, floors, ceilings, or underground were not inspected. Water quality, flow rate measurements, and well/septic systems require specialized testing not included in this inspection. Interior pipe conditions cannot be determined without camera inspection.',
+  electrical: 'The electrical inspection is limited to visible and accessible components. Wiring concealed within walls, ceilings, floors, and conduits was not inspected. Panel covers were removed where safe to do so. Low-voltage systems, security systems, and specialized circuits require evaluation by qualified specialists. This inspection does not constitute a code compliance evaluation.',
+  hvac: 'The HVAC inspection is limited to visible and accessible components and basic operational testing. Heat exchangers, internal components, and refrigerant levels require specialized equipment and licensed technicians to fully evaluate. Ductwork concealed within walls and ceilings was not inspected. Efficiency ratings and remaining useful life are estimates only.',
+  insulation: 'The insulation inspection is limited to visible and accessible areas, primarily the attic and crawlspace where accessible. Insulation within walls cannot be evaluated without invasive testing. R-value estimates are visual approximations. Vapor barrier inspection is limited to visible areas of crawlspaces.',
+  fireplace: 'The fireplace and fuel-burning appliance inspection is limited to visible components. Flue interiors, chimney liner conditions, and internal combustion chambers require specialized camera inspection by a certified chimney sweep. Gas connections should be evaluated by a licensed plumber or gas technician. Fires were not started during this inspection.',
+  safety: 'The safety inspection includes visual verification of detector presence and basic testing where accessible. Battery conditions and sensor calibration require specialized testing. Security system functionality should be verified with the monitoring company. Environmental hazards such as mold, asbestos, radon, and lead require specialized testing not included in this inspection.',
+};
+
+// Table of contents entries (will be populated during PDF generation)
+interface TocEntry {
+  title: string;
+  pageNumber: number;
+}
+
+// Category display names for TOC
+const CATEGORY_DISPLAY_NAMES: Record<string, string> = {
+  exterior: 'Exterior',
+  interior: 'Interior',
+  roofing: 'Roofing',
+  plumbing: 'Plumbing',
+  electrical: 'Electrical',
+  hvac: 'Heating and Cooling',
+  insulation: 'Insulation & Ventilation',
+  fireplace: 'Fireplaces & Fuel Burning',
+  safety: 'Safety & Misc.',
+};
+
 /**
  * Get the section number for an item (e.g., "1-1", "1-2", "2-1")
  */
@@ -70,6 +102,34 @@ function getSectionNumber(itemId: string): string {
  */
 function numberToLetter(n: number): string {
   return String.fromCharCode(97 + n);
+}
+
+/**
+ * Wrap text to fit within a max width, returning array of lines
+ */
+function wrapTextToLines(text: string, font: any, fontSize: number, maxWidth: number): string[] {
+  if (!text) return [];
+  const words = text.split(' ');
+  const lines: string[] = [];
+  let currentLine = '';
+
+  for (const word of words) {
+    const testLine = currentLine ? `${currentLine} ${word}` : word;
+    const width = font.widthOfTextAtSize(testLine, fontSize);
+
+    if (width > maxWidth && currentLine) {
+      lines.push(currentLine);
+      currentLine = word;
+    } else {
+      currentLine = testLine;
+    }
+  }
+
+  if (currentLine) {
+    lines.push(currentLine);
+  }
+
+  return lines;
 }
 
 interface GeneratePdfRequest {
@@ -264,8 +324,14 @@ async function generateInspectionPDF(
   console.log('Final facadePhotoUrl:', facadePhotoUrl);
   console.log('=== END FACADE DEBUG ===')
 
+  // Track table of contents entries
+  const tocEntries: TocEntry[] = [];
+
+  // Helper to get current page number (1-indexed, cover page is 1)
+  const getPageNumber = () => ctx.doc.getPageCount();
+
   // ==========================================
-  // COVER PAGE
+  // COVER PAGE (TOC will be added at the end)
   // ==========================================
   ctx = await drawCoverPage(ctx, inspection, inspectionType, address, client, facadePhotoUrl, logoImage);
 
@@ -273,6 +339,7 @@ async function generateInspectionPDF(
   // PROPERTY INFORMATION
   // ==========================================
   ctx = addNewPage(ctx);
+  tocEntries.push({ title: 'Property Information', pageNumber: getPageNumber() });
   ctx = drawSectionHeader(ctx, 'Property Information');
 
   ctx = drawInfoRow(ctx,
@@ -330,12 +397,14 @@ async function generateInspectionPDF(
   // EXECUTIVE SUMMARY (new page)
   // ==========================================
   ctx = addNewPage(ctx);
+  tocEntries.push({ title: 'Executive Summary', pageNumber: getPageNumber() });
   ctx = drawSectionHeader(ctx, 'Executive Summary');
   ctx = drawSummaryBox(ctx, inspection.executive_summary?.text);
 
   // ==========================================
   // INSPECTION FINDINGS (with inline photos)
   // ==========================================
+  tocEntries.push({ title: 'Inspection Findings', pageNumber: getPageNumber() });
   ctx = drawSectionHeader(ctx, 'Inspection Findings');
 
   const observations = inspection.observations || {};
@@ -395,15 +464,70 @@ async function generateInspectionPDF(
 
       // Category sub-header with number
       const categoryNumber = catIdx + 1;
-      ctx = ensureSpace(ctx, 30);
-      ctx.page.drawText(`${categoryNumber}. ${getCategoryDisplayName(category)}`, {
+      const categoryName = CATEGORY_DISPLAY_NAMES[category] || getCategoryDisplayName(category);
+
+      // Calculate height needed for header + limitations
+      const limitations = CATEGORY_LIMITATIONS[category] || '';
+      const limitationsHeight = limitations
+        ? 60 + Math.ceil(limitations.length / 80) * 12  // Approximate height for limitations box
+        : 0;
+
+      // Ensure space for header + limitations (start new page if needed)
+      ctx = ensureSpace(ctx, 50 + limitationsHeight);
+
+      // Draw category header
+      ctx.page.drawText(`${categoryNumber}. ${categoryName}`, {
         x: PAGE.MARGIN_LEFT,
         y: ctx.y,
-        size: FONTS.BODY + 1,
+        size: FONTS.BODY + 2,
         font: ctx.fonts.bold,
         color: COLORS.PRIMARY_BLUE,
       });
-      ctx.y -= 20;
+      ctx.y -= 18;
+
+      // Draw limitations box
+      if (limitations) {
+        // Draw limitations in a subtle box
+        const boxPadding = 10;
+        const limitationsLines = wrapTextToLines(limitations, ctx.fonts.regular, FONTS.SMALL, PAGE.CONTENT_WIDTH - 2 * boxPadding);
+        const boxHeight = limitationsLines.length * (FONTS.SMALL * 1.4) + 2 * boxPadding;
+
+        ctx.page.drawRectangle({
+          x: PAGE.MARGIN_LEFT,
+          y: ctx.y - boxHeight,
+          width: PAGE.CONTENT_WIDTH,
+          height: boxHeight,
+          color: rgb(0.97, 0.97, 0.97),
+          borderColor: rgb(0.85, 0.85, 0.85),
+          borderWidth: 0.5,
+        });
+
+        // Draw "Limitations:" label
+        ctx.page.drawText('Limitations:', {
+          x: PAGE.MARGIN_LEFT + boxPadding,
+          y: ctx.y - boxPadding - FONTS.SMALL,
+          size: FONTS.SMALL,
+          font: ctx.fonts.bold,
+          color: COLORS.TEXT_LIGHT,
+        });
+
+        // Draw limitations text
+        let limitY = ctx.y - boxPadding - FONTS.SMALL - 12;
+        for (const line of limitationsLines) {
+          ctx.page.drawText(line, {
+            x: PAGE.MARGIN_LEFT + boxPadding,
+            y: limitY,
+            size: FONTS.SMALL,
+            font: ctx.fonts.regular,
+            color: COLORS.TEXT_LIGHT,
+          });
+          limitY -= FONTS.SMALL * 1.4;
+        }
+
+        ctx.y -= boxHeight + 15;
+      } else {
+        ctx.y -= 10;
+      }
 
       // Sort observations by item order within category
       const itemOrder = ITEM_ORDER[category] || [];
@@ -462,6 +586,7 @@ async function generateInspectionPDF(
   // RECOMMENDATIONS
   // ==========================================
   ctx = addNewPage(ctx);
+  tocEntries.push({ title: 'Recommendations', pageNumber: getPageNumber() });
   ctx = drawSectionHeader(ctx, 'Recommendations');
 
   const recommendations = (inspection.recommendations || [])
@@ -696,6 +821,86 @@ async function generateInspectionPDF(
     font: ctx.fonts.regular,
     color: COLORS.TEXT_LIGHT,
   });
+
+  // ==========================================
+  // ADD TABLE OF CONTENTS TO COVER PAGE
+  // ==========================================
+  const coverPage = doc.getPage(0);
+  const totalPages = doc.getPageCount();
+
+  // Draw TOC title on cover page (positioned at bottom area, above logo)
+  const tocY = 180; // Position above the logo area
+  const tocX = PAGE.MARGIN_LEFT + 50;
+
+  coverPage.drawText('TABLE OF CONTENTS', {
+    x: tocX,
+    y: tocY,
+    size: FONTS.SMALL + 1,
+    font: ctx.fonts.bold,
+    color: COLORS.WHITE,
+  });
+
+  // Draw TOC entries
+  let tocLineY = tocY - 18;
+  for (const entry of tocEntries) {
+    const pageText = `${entry.pageNumber}`;
+    const titleText = entry.title;
+
+    // Draw title
+    coverPage.drawText(titleText, {
+      x: tocX,
+      y: tocLineY,
+      size: FONTS.SMALL,
+      font: ctx.fonts.regular,
+      color: COLORS.WHITE,
+    });
+
+    // Draw page number (right-aligned)
+    const pageNumWidth = ctx.fonts.regular.widthOfTextAtSize(pageText, FONTS.SMALL);
+    coverPage.drawText(pageText, {
+      x: PAGE.WIDTH - PAGE.MARGIN_RIGHT - 50 - pageNumWidth,
+      y: tocLineY,
+      size: FONTS.SMALL,
+      font: ctx.fonts.regular,
+      color: COLORS.WHITE,
+    });
+
+    // Draw dot leader between title and page number
+    const titleWidth = ctx.fonts.regular.widthOfTextAtSize(titleText, FONTS.SMALL);
+    const dotsStartX = tocX + titleWidth + 5;
+    const dotsEndX = PAGE.WIDTH - PAGE.MARGIN_RIGHT - 50 - pageNumWidth - 5;
+    let dotX = dotsStartX;
+    while (dotX < dotsEndX) {
+      coverPage.drawText('.', {
+        x: dotX,
+        y: tocLineY,
+        size: FONTS.SMALL,
+        font: ctx.fonts.regular,
+        color: rgb(0.6, 0.6, 0.6),
+      });
+      dotX += 6;
+    }
+
+    tocLineY -= 14;
+  }
+
+  // ==========================================
+  // ADD PAGE NUMBERS TO ALL PAGES (except cover)
+  // ==========================================
+  const pages = doc.getPages();
+  for (let i = 1; i < pages.length; i++) { // Start from 1 to skip cover page
+    const page = pages[i];
+    const pageNumText = `Page ${i + 1} of ${totalPages}`;
+    const pageNumWidth = ctx.fonts.regular.widthOfTextAtSize(pageNumText, FONTS.SMALL);
+
+    page.drawText(pageNumText, {
+      x: PAGE.WIDTH - PAGE.MARGIN_RIGHT - pageNumWidth,
+      y: PAGE.MARGIN_BOTTOM - 20,
+      size: FONTS.SMALL,
+      font: ctx.fonts.regular,
+      color: COLORS.TEXT_LIGHT,
+    });
+  }
 
   // Serialize the PDF
   return await doc.save();
