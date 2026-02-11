@@ -840,20 +840,20 @@ async function generateInspectionPDF(
   const tocHeaderFontSize = FONTS.SMALL; // Same as left column headers
   const tocDataFontSize = FONTS.SMALL; // Same as left column data
 
-  // Draw TOC header row (first row of table)
+  // Draw TOC header row (light grey background, dark text)
   coverPage.drawRectangle({
     x: tocBoxX,
     y: tocBoxY - tocRowHeight,
     width: tocBoxWidth,
     height: tocRowHeight,
-    color: rgb(0.25, 0.25, 0.25),
+    color: rgb(0.75, 0.75, 0.75),
   });
   coverPage.drawText('TABLE OF CONTENTS', {
     x: tocBoxX + tocPadding,
     y: tocBoxY - tocRowHeight + 6,
     size: tocHeaderFontSize,
     font: ctx.fonts.bold,
-    color: COLORS.WHITE,
+    color: rgb(0.2, 0.2, 0.2),
   });
 
   // Draw TOC entries with alternating row colors
@@ -1035,20 +1035,20 @@ async function drawCoverPage(
 
   // Helper to draw a info table box
   const drawInfoTable = (label: string, value: string, startY: number): number => {
-    // Header row (dark)
+    // Header row (light grey background, dark text)
     page.drawRectangle({
       x: leftColumnX,
       y: startY - tableRowHeight,
       width: leftColumnWidth,
       height: tableRowHeight,
-      color: rgb(0.25, 0.25, 0.25),
+      color: rgb(0.75, 0.75, 0.75),
     });
     page.drawText(label, {
       x: leftColumnX + tablePadding,
       y: startY - tableRowHeight + 6,
       size: headerFontSize,
       font: fonts.bold,
-      color: COLORS.WHITE,
+      color: rgb(0.2, 0.2, 0.2),
     });
 
     // Value row (lighter)
@@ -1073,20 +1073,20 @@ async function drawCoverPage(
   let leftY = bottomSectionY;
 
   // Property Address table (with two value rows for street + city/state)
-  // Header row
+  // Header row (light grey background, dark text)
   page.drawRectangle({
     x: leftColumnX,
     y: leftY - tableRowHeight,
     width: leftColumnWidth,
     height: tableRowHeight,
-    color: rgb(0.25, 0.25, 0.25),
+    color: rgb(0.75, 0.75, 0.75),
   });
   page.drawText('PROPERTY ADDRESS', {
     x: leftColumnX + tablePadding,
     y: leftY - tableRowHeight + 6,
     size: headerFontSize,
     font: fonts.bold,
-    color: COLORS.WHITE,
+    color: rgb(0.2, 0.2, 0.2),
   });
 
   // Street row
