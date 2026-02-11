@@ -23,7 +23,7 @@ export async function cleanupNote(
     grade: string;
   }
 ): Promise<string> {
-  const { data, error } = await supabase.functions.invoke('ai-cleanup-note', {
+  const { data, error } = await supabase!.functions.invoke('ai-cleanup-note', {
     body: {
       rawText: note.rawText,
       context,
@@ -69,7 +69,7 @@ export async function cleanupNotesBatch(
 
     const batchPromises = batch.map(async (note) => {
       try {
-        const { data, error } = await supabase.functions.invoke('ai-cleanup-note', {
+        const { data, error } = await supabase!.functions.invoke('ai-cleanup-note', {
           body: {
             rawText: note.rawText,
             context: note.context,
@@ -121,7 +121,7 @@ export async function generateExecutiveSummary(
   inspection: Inspection,
   feedback?: string
 ): Promise<string> {
-  const { data, error } = await supabase.functions.invoke('ai-executive-summary', {
+  const { data, error } = await supabase!.functions.invoke('ai-executive-summary', {
     body: {
       inspection: prepareInspectionForAI(inspection),
       feedback,
@@ -140,7 +140,7 @@ export async function generateRecommendations(
   inspection: Inspection,
   feedback?: string
 ): Promise<Recommendation[]> {
-  const { data, error } = await supabase.functions.invoke('ai-recommendations', {
+  const { data, error } = await supabase!.functions.invoke('ai-recommendations', {
     body: {
       inspection: prepareInspectionForAI(inspection),
       feedback,

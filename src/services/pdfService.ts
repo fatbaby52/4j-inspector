@@ -112,7 +112,7 @@ export const pdfService = {
    */
   async getReportUrl(storageKey: string): Promise<string | null> {
     try {
-      const { data } = await supabase.storage
+      const { data } = await supabase!.storage
         .from('inspection-reports')
         .getPublicUrl(storageKey);
 
@@ -155,7 +155,7 @@ export const pdfService = {
    */
   async deleteReport(storageKey: string): Promise<boolean> {
     try {
-      const { error } = await supabase.storage
+      const { error } = await supabase!.storage
         .from('inspection-reports')
         .remove([storageKey]);
 
@@ -175,7 +175,7 @@ export const pdfService = {
    */
   async reportExists(storageKey: string): Promise<boolean> {
     try {
-      const { data, error } = await supabase.storage
+      const { data, error } = await supabase!.storage
         .from('inspection-reports')
         .list('', {
           search: storageKey,

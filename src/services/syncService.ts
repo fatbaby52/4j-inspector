@@ -262,7 +262,7 @@ async function uploadPhoto(photoData: {
 // ============================================
 
 export async function pullInspection(inspectionId: string): Promise<any> {
-  const { data, error } = await supabase
+  const { data, error } = await supabase!
     .from('inspections')
     .select('*')
     .eq('id', inspectionId)
@@ -273,7 +273,7 @@ export async function pullInspection(inspectionId: string): Promise<any> {
 }
 
 export async function pullAllInspections(inspectorId: string): Promise<any[]> {
-  const { data, error } = await supabase
+  const { data, error } = await supabase!
     .from('inspections')
     .select('*')
     .eq('inspector_id', inspectorId)

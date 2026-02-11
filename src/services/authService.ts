@@ -17,12 +17,12 @@ export interface AuthUser {
 // ============================================
 
 export async function getCurrentUser(): Promise<AuthUser | null> {
-  const { data: { user } } = await supabase.auth.getUser();
+  const { data: { user } } = await supabase!.auth.getUser();
 
   if (!user) return null;
 
   // Get profile data
-  const { data: profile } = await supabase
+  const { data: profile } = await supabase!
     .from('profiles')
     .select('*')
     .eq('id', user.id)
@@ -41,7 +41,7 @@ export async function getCurrentUser(): Promise<AuthUser | null> {
 }
 
 export async function getSession(): Promise<Session | null> {
-  const { data: { session } } = await supabase.auth.getSession();
+  const { data: { session } } = await supabase!.auth.getSession();
   return session;
 }
 
@@ -53,7 +53,7 @@ export async function signInWithEmail(
   email: string,
   password: string
 ): Promise<{ user: AuthUser | null; error: string | null }> {
-  const { error } = await supabase.auth.signInWithPassword({
+  const { error } = await supabase!.auth.signInWithPassword({
     email,
     password,
   });
@@ -69,7 +69,7 @@ export async function signInWithEmail(
 export async function signInWithMagicLink(
   email: string
 ): Promise<{ success: boolean; error: string | null }> {
-  const { error } = await supabase.auth.signInWithOtp({
+  const { error } = await supabase!.auth.signInWithOtp({
     email,
     options: {
       emailRedirectTo: `${window.location.origin}/`,
@@ -92,7 +92,7 @@ export async function signUp(
   password: string,
   fullName: string
 ): Promise<{ user: AuthUser | null; error: string | null }> {
-  const { data, error } = await supabase.auth.signUp({
+  const { data, error } = await supabase!.auth.signUp({
     email,
     password,
     options: {
@@ -120,7 +120,7 @@ export async function signUp(
 // ============================================
 
 export async function signOut(): Promise<{ error: string | null }> {
-  const { error } = await supabase.auth.signOut();
+  const { error } = await supabase!.auth.signOut();
 
   if (error) {
     return { error: error.message };
@@ -136,7 +136,7 @@ export async function signOut(): Promise<{ error: string | null }> {
 export async function resetPassword(
   email: string
 ): Promise<{ success: boolean; error: string | null }> {
-  const { error } = await supabase.auth.resetPasswordForEmail(email, {
+  const { error } = await supabase!.auth.resetPasswordForEmail(email, {
     redirectTo: `${window.location.origin}/reset-password`,
   });
 
@@ -150,7 +150,7 @@ export async function resetPassword(
 export async function updatePassword(
   newPassword: string
 ): Promise<{ success: boolean; error: string | null }> {
-  const { error } = await supabase.auth.updateUser({
+  const { error } = await supabase!.auth.updateUser({
     password: newPassword,
   });
 
@@ -168,13 +168,13 @@ export async function updatePassword(
 export async function updateProfile(
   updates: Partial<Pick<AuthUser, 'fullName' | 'company' | 'avatarUrl'>>
 ): Promise<{ success: boolean; error: string | null }> {
-  const { data: { user } } = await supabase.auth.getUser();
+  const { data: { user } } = await supabase!.auth.getUser();
 
   if (!user) {
     return { success: false, error: 'Not authenticated' };
   }
 
-  const { error } = await supabase
+  const { error } = await supabase!
     .from('profiles')
     .update({
       full_name: updates.fullName,
@@ -197,7 +197,7 @@ export async function updateProfile(
 export function onAuthStateChange(
   callback: (user: AuthUser | null) => void
 ): () => void {
-  const { data: { subscription } } = supabase.auth.onAuthStateChange(
+  const { data: { subscription } } = supabase!.auth.onAuthStateChange(
     async (_event, session) => {
       if (session?.user) {
         const user = await getCurrentUser();
