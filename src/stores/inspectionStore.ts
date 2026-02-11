@@ -18,8 +18,10 @@ import {
   deleteInspection as deleteInspectionFromDB,
   savePhoto,
   deletePhoto as deletePhotoFromDB,
-  getPhotoCount
+  getPhotoCount,
+  saveCloudInspection
 } from '@/db/database';
+import { pullAllInspections } from '@/services/syncService';
 import { photoStore } from '@/db/photoStore';
 import { addToQueue } from '@/db/syncQueue';
 
@@ -107,6 +109,24 @@ export const useInspectionStore = create<InspectionState>((set, get) => ({
   loadInspections: async () => {
     set({ isLoading: true });
     try {
+      // First, try to pull from cloud if online
+      if (navigator.onLine) {
+        try {
+          // Use the fixed inspector ID that syncService uses
+          const fixedInspectorId = '00000000-0000-0000-0000-000000000001';
+          const cloudInspections = await pullAllInspections(fixedInspectorId);
+
+          // Save each cloud inspection to local DB (merges with existing)
+          for (const cloudInspection of cloudInspections) {
+            await saveCloudInspection(cloudInspection);
+          }
+          console.log(`Pulled ${cloudInspections.length} inspections from cloud`);
+        } catch (error) {
+          console.warn('Failed to pull from cloud, using local data:', error);
+        }
+      }
+
+      // Then load all inspections from local DB (now includes merged cloud data)
       const inspections = await getAllInspections();
       set({ inspections });
     } finally {

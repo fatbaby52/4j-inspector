@@ -135,3 +135,60 @@ export async function markPhotoSynced(id: string, storageKey: string, storageUrl
     storageUrl
   });
 }
+
+// ============================================
+// CLOUD SYNC HELPERS
+// ============================================
+
+/**
+ * Save an inspection from the cloud to local storage.
+ * Only overwrites if cloud version is newer or local doesn't exist.
+ */
+export async function saveCloudInspection(cloudInspection: any): Promise<void> {
+  const localInspection = await inspectionDB.inspections.get(cloudInspection.id);
+
+  // Convert cloud format (snake_case) to local format (camelCase)
+  const inspection: Inspection = {
+    id: cloudInspection.id,
+    type: cloudInspection.type,
+    status: cloudInspection.status,
+    createdAt: new Date(cloudInspection.created_at),
+    updatedAt: new Date(cloudInspection.updated_at),
+    fieldCompletedAt: cloudInspection.field_completed_at ? new Date(cloudInspection.field_completed_at) : undefined,
+    reviewCompletedAt: cloudInspection.review_completed_at ? new Date(cloudInspection.review_completed_at) : undefined,
+    reportGeneratedAt: cloudInspection.report_generated_at ? new Date(cloudInspection.report_generated_at) : undefined,
+    lastEditedByDeviceId: cloudInspection.last_edited_by_device_id || '',
+    lastEditedByDeviceType: cloudInspection.last_edited_by_device_type || 'mobile',
+    syncStatus: 'synced',
+    lastSyncedAt: new Date(),
+    version: cloudInspection.version || 1,
+    inspectorId: cloudInspection.inspector_id,
+    inspectorName: cloudInspection.inspector_name,
+    inspectorSignature: cloudInspection.inspector_signature,
+    inspectionDate: new Date(cloudInspection.inspection_date),
+    clientInfo: cloudInspection.client_info || { name: '', email: '', phone: '' },
+    propertyAddress: cloudInspection.property_address || { street: '', city: '', state: '', zip: '' },
+    facadePhotoId: cloudInspection.facade_photo_id,
+    buildingData: cloudInspection.building_data || {},
+    observations: cloudInspection.observations || {},
+    executiveSummary: cloudInspection.executive_summary,
+    recommendations: cloudInspection.recommendations || [],
+    reportStorageKey: cloudInspection.report_storage_key,
+    reportUrl: cloudInspection.report_url,
+  };
+
+  // If local doesn't exist, or cloud is newer, save it
+  if (!localInspection) {
+    await inspectionDB.inspections.put(inspection);
+  } else {
+    // Compare versions - cloud wins if higher version
+    const cloudVersion = cloudInspection.version || 1;
+    const localVersion = localInspection.version || 1;
+
+    // Also check if local has unsynced changes
+    if (localInspection.syncStatus === 'synced' || cloudVersion > localVersion) {
+      await inspectionDB.inspections.put(inspection);
+    }
+    // If local has unsynced changes, keep local version
+  }
+}
