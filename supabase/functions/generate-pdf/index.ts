@@ -10,6 +10,7 @@ import {
   FONTS,
   COLORS,
   PageContext,
+  ObservationPhoto,
   addNewPage,
   ensureSpace,
   drawSectionHeader,
@@ -26,6 +27,50 @@ import {
   formatDate,
   formatItemName,
 } from '../_shared/pdfHelpers.ts';
+
+// Category and item numbering system
+const CATEGORY_ORDER = [
+  'exterior', 'interior', 'roofing', 'plumbing',
+  'electrical', 'hvac', 'insulation', 'fireplace', 'safety'
+];
+
+// Item order within each category (matches inspectionCategories.ts)
+const ITEM_ORDER: Record<string, string[]> = {
+  exterior: ['ext-foundation', 'ext-grading', 'ext-driveways', 'ext-decks', 'ext-vegetation', 'ext-parking', 'ext-walls', 'ext-windows', 'ext-doors', 'ext-other'],
+  interior: ['int-walls', 'int-floors', 'int-stairs', 'int-doors', 'int-windows', 'int-appliances', 'int-other'],
+  roofing: ['roof-material', 'roof-gutters', 'roof-flashing', 'roof-penetrations', 'roof-other'],
+  plumbing: ['plumb-supply', 'plumb-heater', 'plumb-bibs', 'plumb-fixtures', 'plumb-other'],
+  electrical: ['elec-panel', 'elec-subpanels', 'elec-breakers', 'elec-wiring', 'elec-fixtures', 'elec-gfci', 'elec-other'],
+  hvac: ['hvac-heating', 'hvac-venting', 'hvac-cooling', 'hvac-thermostat', 'hvac-other'],
+  insulation: ['ins-attic', 'ins-crawlspace', 'ins-ventilation', 'ins-vapor', 'ins-other'],
+  fireplace: ['fire-firebox', 'fire-chimney', 'fire-dampers', 'fire-other'],
+  safety: ['safe-detectors', 'safe-security', 'safe-other'],
+};
+
+/**
+ * Get the section number for an item (e.g., "1-1", "1-2", "2-1")
+ */
+function getSectionNumber(itemId: string): string {
+  const prefix = itemId.split('-')[0];
+  const category = getCategoryFromPrefix(prefix);
+  const categoryIndex = CATEGORY_ORDER.indexOf(category);
+
+  if (categoryIndex === -1) return '?-?';
+
+  const items = ITEM_ORDER[category] || [];
+  const itemIndex = items.indexOf(itemId);
+
+  if (itemIndex === -1) return `${categoryIndex + 1}-?`;
+
+  return `${categoryIndex + 1}-${itemIndex + 1}`;
+}
+
+/**
+ * Convert number to letter (0 = a, 1 = b, etc.)
+ */
+function numberToLetter(n: number): string {
+  return String.fromCharCode(97 + n);
+}
 
 interface GeneratePdfRequest {
   inspectionId: string;
@@ -289,22 +334,41 @@ async function generateInspectionPDF(
   ctx = drawSummaryBox(ctx, inspection.executive_summary?.text);
 
   // ==========================================
-  // INSPECTION FINDINGS
+  // INSPECTION FINDINGS (with inline photos)
   // ==========================================
   ctx = drawSectionHeader(ctx, 'Inspection Findings');
 
   const observations = inspection.observations || {};
   const observationEntries = Object.entries(observations);
 
+  // Build a map of observation_id -> photos for inline display
+  const photosByObservationId: Record<string, any[]> = {};
+  if (includePhotos && photos && photos.length > 0) {
+    for (const photo of photos) {
+      if (photo.observation_id && photo.storage_url) {
+        if (!photosByObservationId[photo.observation_id]) {
+          photosByObservationId[photo.observation_id] = [];
+        }
+        photosByObservationId[photo.observation_id].push(photo);
+      }
+    }
+  }
+
+  // Build a map of observation_id -> itemId for section numbering
+  const observationToItemId: Record<string, string> = {};
+  for (const [itemId, obsList] of observationEntries) {
+    if (!Array.isArray(obsList)) continue;
+    for (const obs of obsList) {
+      if (obs.id) {
+        observationToItemId[obs.id] = itemId;
+      }
+    }
+  }
+
   if (observationEntries.length === 0) {
     ctx = drawNoData(ctx, 'No observations were recorded during this inspection.');
   } else {
     // Group observations by category
-    const categoryOrder = [
-      'exterior', 'interior', 'roofing', 'plumbing',
-      'electrical', 'hvac', 'insulation', 'fireplace', 'safety'
-    ];
-
     const groupedObs: Record<string, Array<{ itemId: string; obs: any }>> = {};
 
     for (const [itemId, obsList] of observationEntries) {
@@ -324,13 +388,15 @@ async function generateInspectionPDF(
     }
 
     // Draw observations by category
-    for (const category of categoryOrder) {
+    for (let catIdx = 0; catIdx < CATEGORY_ORDER.length; catIdx++) {
+      const category = CATEGORY_ORDER[catIdx];
       const categoryObs = groupedObs[category];
       if (!categoryObs || categoryObs.length === 0) continue;
 
-      // Category sub-header
+      // Category sub-header with number
+      const categoryNumber = catIdx + 1;
       ctx = ensureSpace(ctx, 30);
-      ctx.page.drawText(getCategoryDisplayName(category), {
+      ctx.page.drawText(`${categoryNumber}. ${getCategoryDisplayName(category)}`, {
         x: PAGE.MARGIN_LEFT,
         y: ctx.y,
         size: FONTS.BODY + 1,
@@ -339,9 +405,18 @@ async function generateInspectionPDF(
       });
       ctx.y -= 20;
 
-      for (const { itemId, obs } of categoryObs) {
-        // Skip N/A items unless they have notes
-        if (obs.grade === 'na' && (!obs.notes || obs.notes.length === 0)) {
+      // Sort observations by item order within category
+      const itemOrder = ITEM_ORDER[category] || [];
+      const sortedObs = [...categoryObs].sort((a, b) => {
+        const aIdx = itemOrder.indexOf(a.itemId);
+        const bIdx = itemOrder.indexOf(b.itemId);
+        return (aIdx === -1 ? 999 : aIdx) - (bIdx === -1 ? 999 : bIdx);
+      });
+
+      for (const { itemId, obs } of sortedObs) {
+        // Skip N/A items unless they have notes or photos
+        const obsPhotos = obs.id ? (photosByObservationId[obs.id] || []) : [];
+        if (obs.grade === 'na' && (!obs.notes || obs.notes.length === 0) && obsPhotos.length === 0) {
           continue;
         }
 
@@ -349,74 +424,37 @@ async function generateInspectionPDF(
           .map((n: any) => n.cleanedText || n.rawText || '')
           .filter((text: string) => text.trim());
 
-        ctx = drawObservation(ctx, formatItemName(itemId), obs.grade || 'na', notes);
+        // Get section number for this item
+        const sectionNumber = getSectionNumber(itemId);
+
+        // Build photo labels with section-based numbering
+        const inlinePhotos: ObservationPhoto[] = obsPhotos.map((photo: any, idx: number) => ({
+          url: photo.storage_url,
+          label: `${sectionNumber}(${numberToLetter(idx)})`
+        }));
+
+        // Wrapper function for drawImage that matches expected signature
+        const drawImageWrapper = async (
+          ctx: PageContext,
+          url: string,
+          x: number,
+          width: number,
+          height: number,
+          caption: string
+        ) => {
+          return await drawImage(ctx, url, x, width, height, caption);
+        };
+
+        ctx = await drawObservation(
+          ctx,
+          sectionNumber,
+          formatItemName(itemId),
+          obs.grade || 'na',
+          notes,
+          includePhotos ? inlinePhotos : undefined,
+          includePhotos ? drawImageWrapper : undefined
+        );
       }
-    }
-  }
-
-  // ==========================================
-  // PHOTO GALLERY (if photos and enabled)
-  // ==========================================
-  if (includePhotos && photos && photos.length > 0) {
-    ctx = addNewPage(ctx);
-    ctx = drawSectionHeader(ctx, 'Photo Documentation');
-
-    // Build a map from observation_id to item name
-    const observationToItemName: Record<string, string> = {};
-    const observations = inspection.observations || {};
-    for (const [itemId, obsList] of Object.entries(observations)) {
-      if (!Array.isArray(obsList)) continue;
-      for (const obs of obsList) {
-        if (obs.id) {
-          observationToItemName[obs.id] = formatItemName(itemId);
-        }
-      }
-    }
-
-    // Group photos by item name and assign numbers
-    const photoCountByItem: Record<string, number> = {};
-
-    // Create captions for each photo
-    const photosWithCaptions = photos.map(photo => {
-      const itemName = observationToItemName[photo.observation_id] || 'Photo';
-      photoCountByItem[itemName] = (photoCountByItem[itemName] || 0) + 1;
-      const caption = `${itemName} Image ${photoCountByItem[itemName]}`;
-      return { ...photo, generatedCaption: caption };
-    });
-
-    // Draw photos in a 2-column grid
-    const photoWidth = (PAGE.CONTENT_WIDTH - 20) / 2;
-    const photoHeight = 150;
-    let col = 0;
-
-    for (const photo of photosWithCaptions) {
-      if (!photo.storage_url) continue;
-
-      const x = PAGE.MARGIN_LEFT + col * (photoWidth + 20);
-
-      ctx = ensureSpace(ctx, photoHeight + 30);
-
-      const result = await drawImage(
-        ctx,
-        photo.storage_url,
-        x,
-        photoWidth,
-        photoHeight,
-        photo.generatedCaption
-      );
-
-      if (result.height > 0) {
-        col++;
-        if (col >= 2) {
-          col = 0;
-          ctx.y -= photoHeight + 30;
-        }
-      }
-    }
-
-    // If we ended on an odd column, move down
-    if (col === 1) {
-      ctx.y -= photoHeight + 30;
     }
   }
 

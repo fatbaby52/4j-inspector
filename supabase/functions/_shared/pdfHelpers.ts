@@ -400,15 +400,45 @@ export function drawInfoRow(
 }
 
 /**
- * Draw an observation card with grade coloring
+ * Convert number to letter (0 = a, 1 = b, etc.)
+ */
+function numberToLetter(n: number): string {
+  return String.fromCharCode(97 + n); // 97 is 'a'
+}
+
+/**
+ * Photo info for inline display
+ */
+export interface ObservationPhoto {
+  url: string;
+  label: string; // e.g., "1-1(a)"
+}
+
+/**
+ * Draw an observation card with grade coloring, section number, and inline photos
  */
 export function drawObservation(
   ctx: PageContext,
+  sectionNumber: string,
   itemName: string,
   grade: string,
-  notes: string[]
-): PageContext {
-  // Calculate height needed
+  notes: string[],
+  photos?: ObservationPhoto[],
+  drawImageFn?: (ctx: PageContext, url: string, x: number, width: number, height: number, caption: string) => Promise<{ ctx: PageContext; height: number }>
+): Promise<PageContext> {
+  return drawObservationInternal(ctx, sectionNumber, itemName, grade, notes, photos, drawImageFn);
+}
+
+async function drawObservationInternal(
+  ctx: PageContext,
+  sectionNumber: string,
+  itemName: string,
+  grade: string,
+  notes: string[],
+  photos?: ObservationPhoto[],
+  drawImageFn?: (ctx: PageContext, url: string, x: number, width: number, height: number, caption: string) => Promise<{ ctx: PageContext; height: number }>
+): Promise<PageContext> {
+  // Calculate height needed for text portion
   const notesText = notes.join(' ');
   const notesHeight = notesText
     ? calculateTextHeight(notesText, ctx.fonts.regular, FONTS.BODY, PAGE.CONTENT_WIDTH - 30)
@@ -467,8 +497,9 @@ export function drawObservation(
     color: borderColor,
   });
 
-  // Draw item name
-  ctx.page.drawText(itemName, {
+  // Draw section number and item name
+  const displayText = `${sectionNumber} ${itemName}`;
+  ctx.page.drawText(displayText, {
     x: PAGE.MARGIN_LEFT + 15,
     y: ctx.y - 18,
     size: FONTS.BODY,
@@ -479,7 +510,7 @@ export function drawObservation(
   // Draw grade badge
   const gradeText = grade.toUpperCase();
   const badgeWidth = ctx.fonts.bold.widthOfTextAtSize(gradeText, FONTS.SMALL) + 16;
-  const badgeX = PAGE.MARGIN_LEFT + 15 + ctx.fonts.bold.widthOfTextAtSize(itemName, FONTS.BODY) + 10;
+  const badgeX = PAGE.MARGIN_LEFT + 15 + ctx.fonts.bold.widthOfTextAtSize(displayText, FONTS.BODY) + 10;
 
   ctx.page.drawRectangle({
     x: badgeX,
@@ -513,6 +544,37 @@ export function drawObservation(
   }
 
   ctx.y -= cardHeight + 10;
+
+  // Draw inline photos if present
+  if (photos && photos.length > 0 && drawImageFn) {
+    const photoWidth = (PAGE.CONTENT_WIDTH - 20) / 2; // 2-column layout
+    const photoHeight = 140;
+    let col = 0;
+
+    for (const photo of photos) {
+      if (!photo.url) continue;
+
+      const x = PAGE.MARGIN_LEFT + col * (photoWidth + 20);
+      ctx = ensureSpace(ctx, photoHeight + 30);
+
+      const result = await drawImageFn(ctx, photo.url, x, photoWidth, photoHeight, photo.label);
+      ctx = result.ctx;
+
+      if (result.height > 0) {
+        col++;
+        if (col >= 2) {
+          col = 0;
+          ctx.y -= photoHeight + 30;
+        }
+      }
+    }
+
+    // If we ended on an odd column, move down
+    if (col === 1) {
+      ctx.y -= photoHeight + 30;
+    }
+  }
+
   return ctx;
 }
 
