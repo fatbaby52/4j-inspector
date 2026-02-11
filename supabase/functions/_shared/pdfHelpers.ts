@@ -445,7 +445,19 @@ async function drawObservationInternal(
     : 0;
   const cardHeight = Math.max(45, 35 + notesHeight);
 
-  ctx = ensureSpace(ctx, cardHeight + 15);
+  // Calculate height needed for photos (to keep card + photos together)
+  const photoHeight = 140;
+  const photoRowHeight = photoHeight + 30;
+  const photoCount = photos?.filter(p => p.url)?.length || 0;
+  const photoRows = Math.ceil(photoCount / 2); // 2 photos per row
+  const totalPhotoHeight = photoRows > 0 ? photoRows * photoRowHeight : 0;
+
+  // Total height needed to keep observation + photos together
+  const totalHeight = cardHeight + 15 + totalPhotoHeight;
+
+  // Ensure space for the entire observation block (card + photos)
+  // If it won't fit on current page, start a new page
+  ctx = ensureSpace(ctx, Math.min(totalHeight, PAGE.CONTENT_HEIGHT - 50));
 
   // Determine colors based on grade
   let borderColor: RGB;
@@ -548,30 +560,36 @@ async function drawObservationInternal(
   // Draw inline photos if present
   if (photos && photos.length > 0 && drawImageFn) {
     const photoWidth = (PAGE.CONTENT_WIDTH - 20) / 2; // 2-column layout
-    const photoHeight = 140;
+    const actualPhotoHeight = 140;
     let col = 0;
+    let isFirstRow = true;
 
     for (const photo of photos) {
       if (!photo.url) continue;
 
       const x = PAGE.MARGIN_LEFT + col * (photoWidth + 20);
-      ctx = ensureSpace(ctx, photoHeight + 30);
 
-      const result = await drawImageFn(ctx, photo.url, x, photoWidth, photoHeight, photo.label);
+      // Only ensure space for rows after the first (first row was reserved with the card)
+      if (!isFirstRow && col === 0) {
+        ctx = ensureSpace(ctx, actualPhotoHeight + 30);
+      }
+
+      const result = await drawImageFn(ctx, photo.url, x, photoWidth, actualPhotoHeight, photo.label);
       ctx = result.ctx;
 
       if (result.height > 0) {
         col++;
         if (col >= 2) {
           col = 0;
-          ctx.y -= photoHeight + 30;
+          ctx.y -= actualPhotoHeight + 30;
+          isFirstRow = false;
         }
       }
     }
 
     // If we ended on an odd column, move down
     if (col === 1) {
-      ctx.y -= photoHeight + 30;
+      ctx.y -= actualPhotoHeight + 30;
     }
   }
 
