@@ -691,7 +691,7 @@ async function drawCoverPage(
   // Draw 4J logo in top-right corner
   if (logoImage) {
     // Use actual logo image (right-aligned)
-    drawLogoImage(page, logoImage, PAGE.WIDTH - PAGE.MARGIN_RIGHT, PAGE.HEIGHT - 50, 40);
+    drawLogoImage(page, logoImage, PAGE.WIDTH - PAGE.MARGIN_RIGHT, PAGE.HEIGHT - 50, 40, 150);
   } else {
     // Fallback to drawn logo
     drawLogo(page, fonts.bold, PAGE.WIDTH - PAGE.MARGIN_RIGHT - 50, PAGE.HEIGHT - 60, 50);

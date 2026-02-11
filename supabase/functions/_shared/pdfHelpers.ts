@@ -187,7 +187,7 @@ export function addNewPage(ctx: PageContext): PageContext {
   // Draw 4J logo in top-right corner of every page
   if (ctx.logoImage) {
     // Use actual logo image (right-aligned)
-    drawLogoImage(newPage, ctx.logoImage, PAGE.WIDTH - PAGE.MARGIN_RIGHT, PAGE.HEIGHT - 25, 30);
+    drawLogoImage(newPage, ctx.logoImage, PAGE.WIDTH - PAGE.MARGIN_RIGHT, PAGE.HEIGHT - 25, 30, 120);
   } else {
     // Fallback to drawn logo
     drawLogo(newPage, ctx.fonts.bold, PAGE.WIDTH - PAGE.MARGIN_RIGHT - 40, PAGE.HEIGHT - 35, 40);
@@ -215,18 +215,23 @@ export async function embedLogo(doc: PDFDocument): Promise<any> {
 
 /**
  * Draw the 4J logo on a page using an already-embedded image
+ * Logo is scaled to fit within a bounding box (maxWidth x maxHeight)
  */
 export function drawLogoImage(
   page: PDFPage,
   logoImage: any,
   x: number,
   y: number,
-  maxHeight: number = 40
+  maxHeight: number = 40,
+  maxWidth: number = 150
 ): void {
   if (!logoImage) return;
 
-  // Scale proportionally based on max height
-  const scale = maxHeight / logoImage.height;
+  // Calculate scale to fit within bounding box (preserving aspect ratio)
+  const scaleByHeight = maxHeight / logoImage.height;
+  const scaleByWidth = maxWidth / logoImage.width;
+  const scale = Math.min(scaleByHeight, scaleByWidth);
+
   const width = logoImage.width * scale;
   const height = logoImage.height * scale;
 
