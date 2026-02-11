@@ -21,6 +21,8 @@ import {
   drawImage,
   drawWrappedText,
   drawLogo,
+  drawLogoImage,
+  embedLogo,
   formatDate,
   formatItemName,
 } from '../_shared/pdfHelpers.ts';
@@ -177,17 +179,21 @@ async function generateInspectionPDF(
   const regularFont = await doc.embedFont(StandardFonts.Helvetica);
   const boldFont = await doc.embedFont(StandardFonts.HelveticaBold);
 
+  // Embed 4J logo
+  const logoImage = await embedLogo(doc);
+
   // Extract data
   const address = inspection.property_address || {};
   const client = inspection.client_info || {};
   const building = inspection.building_data || {};
   const inspectionType = inspection.type === 'home' ? 'Home Inspection' : 'Facility Inspection';
 
-  // Initialize context
+  // Initialize context with logo image
   let ctx: PageContext = {
     doc,
     page: doc.addPage([PAGE.WIDTH, PAGE.HEIGHT]),
     y: PAGE.HEIGHT - PAGE.MARGIN_TOP,
+    logoImage,
     fonts: { regular: regularFont, bold: boldFont },
   };
 
@@ -216,7 +222,7 @@ async function generateInspectionPDF(
   // ==========================================
   // COVER PAGE
   // ==========================================
-  ctx = await drawCoverPage(ctx, inspection, inspectionType, address, client, facadePhotoUrl);
+  ctx = await drawCoverPage(ctx, inspection, inspectionType, address, client, facadePhotoUrl, logoImage);
 
   // ==========================================
   // PROPERTY INFORMATION
@@ -667,7 +673,8 @@ async function drawCoverPage(
   inspectionType: string,
   address: any,
   client: any,
-  facadePhotoUrl?: string
+  facadePhotoUrl?: string,
+  logoImage?: any
 ): Promise<PageContext> {
   const { page, fonts, doc } = ctx;
   const centerX = PAGE.WIDTH / 2;
@@ -682,7 +689,13 @@ async function drawCoverPage(
   });
 
   // Draw 4J logo in top-right corner
-  drawLogo(page, fonts.bold, PAGE.WIDTH - PAGE.MARGIN_RIGHT - 50, PAGE.HEIGHT - 60, 50);
+  if (logoImage) {
+    // Use actual logo image (right-aligned)
+    drawLogoImage(page, logoImage, PAGE.WIDTH - PAGE.MARGIN_RIGHT, PAGE.HEIGHT - 50, 40);
+  } else {
+    // Fallback to drawn logo
+    drawLogo(page, fonts.bold, PAGE.WIDTH - PAGE.MARGIN_RIGHT - 50, PAGE.HEIGHT - 60, 50);
+  }
 
   // Title
   let y = PAGE.HEIGHT - 100;
