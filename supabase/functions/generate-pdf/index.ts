@@ -688,13 +688,13 @@ async function drawCoverPage(
     color: COLORS.COVER_GREY,
   });
 
-  // Draw 4J logo in top-right corner
+  // Draw 4J logo in bottom-left corner
   if (logoImage) {
-    // Use actual logo image (right-aligned)
-    drawLogoImage(page, logoImage, PAGE.WIDTH - PAGE.MARGIN_RIGHT, PAGE.HEIGHT - 50, 40, 150);
+    // Use actual logo image (left-aligned, 40px from bottom and left)
+    drawLogoImage(page, logoImage, 40 + 150, 40, 40, 150); // x is right edge of logo, so add width
   } else {
     // Fallback to drawn logo
-    drawLogo(page, fonts.bold, PAGE.WIDTH - PAGE.MARGIN_RIGHT - 50, PAGE.HEIGHT - 60, 50);
+    drawLogo(page, fonts.bold, 40, 40, 50);
   }
 
   // Title
@@ -820,19 +820,6 @@ async function drawCoverPage(
     });
     y -= 22;
   }
-
-  // Company name at bottom
-  y = 80;
-  const company = '4J Construction';
-  const companyWidth = fonts.bold.widthOfTextAtSize(company, 18);
-
-  page.drawText(company, {
-    x: centerX - companyWidth / 2,
-    y,
-    size: 18,
-    font: fonts.bold,
-    color: COLORS.WHITE,
-  });
 
   return ctx;
 }

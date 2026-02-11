@@ -184,13 +184,13 @@ export function ensureSpace(
 export function addNewPage(ctx: PageContext): PageContext {
   const newPage = ctx.doc.addPage([PAGE.WIDTH, PAGE.HEIGHT]);
 
-  // Draw 4J logo in top-right corner of every page
+  // Draw 4J logo in bottom-left corner of every page (40px from edges)
   if (ctx.logoImage) {
-    // Use actual logo image (right-aligned)
-    drawLogoImage(newPage, ctx.logoImage, PAGE.WIDTH - PAGE.MARGIN_RIGHT, PAGE.HEIGHT - 25, 30, 120);
+    // Use actual logo image (left-aligned)
+    drawLogoImage(newPage, ctx.logoImage, 40 + 120, 40, 30, 120); // x is right edge of logo
   } else {
     // Fallback to drawn logo
-    drawLogo(newPage, ctx.fonts.bold, PAGE.WIDTH - PAGE.MARGIN_RIGHT - 40, PAGE.HEIGHT - 35, 40);
+    drawLogo(newPage, ctx.fonts.bold, 40, 40, 40);
   }
 
   return {
